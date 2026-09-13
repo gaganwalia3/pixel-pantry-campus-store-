@@ -1,5 +1,6 @@
 import React, {
   useEffect,
+  useRef,
   useState,
 } from 'react';
 
@@ -112,6 +113,26 @@ export default function App() {
     useState(false);
 
   /*
+   * ============================================================
+   * CHECKOUT IDEMPOTENCY
+   * ============================================================
+   *
+   * One idempotency key is kept for the current checkout
+   * attempt so that browser/network retries reuse the
+   * exact same key.
+   *
+   * The key is cleared only after a successful checkout.
+   *
+   * This prevents:
+   *
+   * - double-click duplicate orders
+   * - frontend retries creating duplicates
+   * - lost-response retries creating duplicates
+   */
+  const checkoutIdempotencyKeyRef =
+    useRef(null);
+
+  /*
    * Load the current session.
    */
   useEffect(() => {
@@ -206,6 +227,13 @@ export default function App() {
       setSellerDashboardOpen(false);
       setMyOrdersOpen(false);
 
+      /*
+       * A logged-out user must never reuse
+       * the previous authenticated checkout key.
+       */
+      checkoutIdempotencyKeyRef.current =
+        null;
+
       showToast(
         'You have been signed out.',
       );
@@ -236,6 +264,10 @@ export default function App() {
   };
 
   /*
+   * ============================================================
+   * CREATE ORDER
+   * ============================================================
+   *
    * Create a real order through the backend.
    *
    * CUSTOMER and SELLER accounts can place
@@ -282,6 +314,35 @@ export default function App() {
         return;
       }
 
+      /*
+       * Generate the idempotency key only once
+       * for the current checkout attempt.
+       *
+       * window.crypto.randomUUID() uses the
+       * browser's cryptographically secure RNG.
+       */
+      if (
+        !checkoutIdempotencyKeyRef.current
+      ) {
+        if (
+          !window.crypto ||
+          typeof window.crypto.randomUUID !==
+          'function'
+        ) {
+          showToast(
+            'Secure checkout is unavailable in this browser.',
+          );
+
+          return;
+        }
+
+        checkoutIdempotencyKeyRef.current =
+          window.crypto.randomUUID();
+      }
+
+      const idempotencyKey =
+        checkoutIdempotencyKeyRef.current;
+
       const csrfToken =
         await getCsrfToken();
 
@@ -295,6 +356,8 @@ export default function App() {
               'application/json',
             'X-CSRF-Token':
               csrfToken,
+            'Idempotency-Key':
+              idempotencyKey,
           },
           body: JSON.stringify({
             customerName,
@@ -321,6 +384,15 @@ export default function App() {
         );
       }
 
+      /*
+       * The checkout completed successfully.
+       *
+       * Clear the key so the next checkout receives
+       * a completely new idempotency key.
+       */
+      checkoutIdempotencyKeyRef.current =
+        null;
+
       clearCart();
       setCheckoutOpen(false);
 
@@ -333,6 +405,15 @@ export default function App() {
         error,
       );
 
+      /*
+       * IMPORTANT:
+       * Do NOT clear the idempotency key here.
+       *
+       * If the request failed because of a temporary
+       * network problem, retrying must reuse the same
+       * key so the backend can safely recover the
+       * original order instead of creating another one.
+       */
       showToast(
         error.message ||
         'Unable to place your order.',

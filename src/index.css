@@ -1726,7 +1726,7 @@ footer {
   right: 23px;
   bottom: 23px;
 
-  z-index: 200;
+  z-index: 10000;
 
   max-width: 315px;
 

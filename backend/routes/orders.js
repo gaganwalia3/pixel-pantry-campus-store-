@@ -11,10 +11,14 @@ const DELIVERY_LOCATION =
 
 const PAYMENT_METHOD = 'COD';
 
+const IDEMPOTENCY_KEY_MAX_LENGTH = 128;
+
 function isValidUuid(value) {
     return (
         typeof value === 'string' &&
-        /^[0-9a-fA-F]{32}$/.test(value)
+        /^[0-9a-fA-F]{32}$/.test(
+            value,
+        )
     );
 }
 
@@ -38,6 +42,165 @@ function normalizePhone(value) {
 
 function decimalToNumber(value) {
     return Number(value);
+}
+
+/*
+ * ============================================================
+ * CHECKOUT IDEMPOTENCY
+ * ============================================================
+ *
+ * Every checkout request must provide an Idempotency-Key.
+ *
+ * The key is scoped to the authenticated user and paired
+ * with a SHA-256 fingerprint of the normalized checkout
+ * request.
+ *
+ * Same key + same request:
+ *      return the original order.
+ *
+ * Same key + different request:
+ *      reject with 409.
+ *
+ * This prevents accidental duplicate orders caused by:
+ *
+ * - double-clicks
+ * - network retries
+ * - frontend retries
+ * - browser refreshes
+ * - lost responses
+ */
+function getIdempotencyKey(req) {
+    const value =
+        req.get('Idempotency-Key');
+
+    if (
+        typeof value !== 'string' ||
+        value.length === 0
+    ) {
+        return null;
+    }
+
+    const key = value.trim();
+
+    if (
+        key.length === 0 ||
+        key.length >
+        IDEMPOTENCY_KEY_MAX_LENGTH
+    ) {
+        return null;
+    }
+
+    /*
+     * Restrict the key to printable ASCII.
+     *
+     * This avoids control characters and unexpected
+     * header values being persisted.
+     */
+    if (!/^[\x21-\x7E]+$/.test(key)) {
+        return null;
+    }
+
+    return key;
+}
+
+function createRequestFingerprint({
+    customerName,
+    customerPhone,
+    items,
+}) {
+    const canonicalItems =
+        items
+            .map((item) => ({
+                productId:
+                    item.productId,
+                quantity:
+                    item.quantity,
+            }))
+            .sort((a, b) =>
+                a.productId.localeCompare(
+                    b.productId,
+                ),
+            );
+
+    const canonicalPayload =
+        JSON.stringify({
+            customerName,
+            customerPhone,
+            items: canonicalItems,
+        });
+
+    return crypto
+        .createHash('sha256')
+        .update(
+            canonicalPayload,
+            'utf8',
+        )
+        .digest('hex');
+}
+
+/*
+ * ============================================================
+ * LOAD EXISTING IDEMPOTENT ORDER
+ * ============================================================
+ *
+ * Used when a client retries a request with a key that has
+ * already successfully created an order.
+ */
+async function getExistingOrder(
+    userId,
+    orderId,
+) {
+    const [
+        orderRows,
+    ] = await db.query(
+        `
+        SELECT
+            HEX(id) AS id,
+            status,
+            subtotal,
+            total_amount,
+            currency,
+            payment_method,
+            payment_status,
+            delivery_location
+        FROM orders
+        WHERE id = UNHEX(?)
+          AND user_id = UNHEX(?)
+        LIMIT 1
+        `,
+        [
+            orderId,
+            userId,
+        ],
+    );
+
+    if (orderRows.length === 0) {
+        return null;
+    }
+
+    const order =
+        orderRows[0];
+
+    return {
+        id: order.id,
+        status: order.status,
+        subtotal:
+            decimalToNumber(
+                order.subtotal,
+            ),
+        totalAmount:
+            decimalToNumber(
+                order.total_amount,
+            ),
+        currency:
+            order.currency,
+        paymentMethod:
+            order.payment_method,
+        paymentStatus:
+            order.payment_status,
+        deliveryLocation:
+            order.delivery_location,
+    };
 }
 
 /*
@@ -266,6 +429,17 @@ router.post(
             });
         }
 
+        const idempotencyKey =
+            getIdempotencyKey(req);
+
+        if (!idempotencyKey) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    'A valid Idempotency-Key header is required.',
+            });
+        }
+
         let connection;
 
         try {
@@ -286,6 +460,9 @@ router.post(
                         'Please provide a valid customer name.',
                 });
             }
+
+            const normalizedCustomerName =
+                customerName.trim();
 
             const phone = normalizePhone(
                 customerPhone,
@@ -386,10 +563,199 @@ router.post(
                 );
             }
 
+            /*
+             * Create a canonical representation of the
+             * normalized checkout request.
+             *
+             * This means the same logical request produces
+             * the same hash even if the frontend supplied
+             * duplicate items in a different order.
+             */
+            const fingerprintItems =
+                Array.from(
+                    requestedItems.entries(),
+                ).map(
+                    ([
+                        productId,
+                        quantity,
+                    ]) => ({
+                        productId,
+                        quantity,
+                    }),
+                );
+
+            const requestHash =
+                createRequestFingerprint({
+                    customerName:
+                        normalizedCustomerName,
+                    customerPhone:
+                        phone,
+                    items:
+                        fingerprintItems,
+                });
+
             connection =
                 await db.getConnection();
 
             await connection.beginTransaction();
+
+            /*
+             * ========================================================
+             * CLAIM IDEMPOTENCY KEY
+             * ========================================================
+             *
+             * The UNIQUE(user_id, idempotency_key) constraint in the
+             * database is the final concurrency guard.
+             */
+            let existingIdempotency;
+
+            try {
+                /*
+                 * The migration defines checkout_idempotency.id as
+                 * BINARY(16) NOT NULL, so generate the record ID
+                 * explicitly instead of relying on the database.
+                 */
+                const idempotencyRecordId =
+                    crypto
+                        .randomBytes(16)
+                        .toString('hex');
+
+                const [
+                    insertResult,
+                ] = await connection.query(
+                    `
+                    INSERT INTO checkout_idempotency (
+                        id,
+                        user_id,
+                        idempotency_key,
+                        request_hash,
+                        order_id
+                    )
+                    VALUES (
+                        UNHEX(?),
+                        UNHEX(?),
+                        ?,
+                        ?,
+                        NULL
+                    )
+                    `,
+                    [
+                        idempotencyRecordId,
+                        req.user.id,
+                        idempotencyKey,
+                        requestHash,
+                    ],
+                );
+
+                if (
+                    insertResult.affectedRows !==
+                    1
+                ) {
+                    throw new Error(
+                        'Unable to reserve checkout idempotency key.',
+                    );
+                }
+            } catch (error) {
+                /*
+                 * Duplicate-key means another request has already
+                 * claimed this user's idempotency key.
+                 *
+                 * MySQL error 1062 = ER_DUP_ENTRY.
+                 */
+                if (error.code !== 'ER_DUP_ENTRY') {
+                    throw error;
+                }
+
+                const [
+                    existingRows,
+                ] = await connection.query(
+                    `
+                    SELECT
+                        request_hash,
+                        HEX(order_id) AS order_id
+                    FROM checkout_idempotency
+                    WHERE user_id = UNHEX(?)
+                      AND idempotency_key = ?
+                    LIMIT 1
+                    `,
+                    [
+                        req.user.id,
+                        idempotencyKey,
+                    ],
+                );
+
+                if (
+                    existingRows.length === 0
+                ) {
+                    throw new Error(
+                        'Checkout idempotency record disappeared unexpectedly.',
+                    );
+                }
+
+                existingIdempotency =
+                    existingRows[0];
+
+                if (
+                    existingIdempotency.request_hash !==
+                    requestHash
+                ) {
+                    await connection.rollback();
+
+                    return res.status(409).json({
+                        success: false,
+                        message:
+                            'This Idempotency-Key has already been used for a different checkout request.',
+                    });
+                }
+
+                /*
+                 * The original transaction has committed if we can
+                 * observe its idempotency record here.
+                 *
+                 * If order_id is present, safely return that order.
+                 */
+                if (
+                    existingIdempotency.order_id
+                ) {
+                    await connection.rollback();
+
+                    const existingOrder =
+                        await getExistingOrder(
+                            req.user.id,
+                            existingIdempotency.order_id,
+                        );
+
+                    if (!existingOrder) {
+                        return res.status(409).json({
+                            success: false,
+                            message:
+                                'The previous checkout could not be recovered.',
+                        });
+                    }
+
+                    return res.status(200).json({
+                        success: true,
+                        message:
+                            'Order already created for this Idempotency-Key.',
+                        order:
+                            existingOrder,
+                    });
+                }
+
+                /*
+                 * If we reach here, the idempotency record exists but
+                 * has no order. This should not happen after a committed
+                 * successful checkout because the key and order are
+                 * written in the same transaction.
+                 */
+                await connection.rollback();
+
+                return res.status(409).json({
+                    success: false,
+                    message:
+                        'This checkout is already being processed. Please retry with the same Idempotency-Key.',
+                });
+            }
 
             const orderItems = [];
 
@@ -402,10 +768,16 @@ router.post(
              * This prevents two simultaneous checkouts
              * from reserving the same stock.
              */
+            const sortedRequestedItems = [
+                ...requestedItems.entries(),
+            ].sort(([productIdA], [productIdB]) =>
+                productIdA.localeCompare(productIdB),
+            );
+
             for (const [
                 productId,
                 requestedQuantity,
-            ] of requestedItems) {
+            ] of sortedRequestedItems) {
                 const [
                     productRows,
                 ] = await connection.query(
@@ -617,7 +989,7 @@ router.post(
                 [
                     orderId,
                     req.user.id,
-                    customerName.trim(),
+                    normalizedCustomerName,
                     phone,
                     subtotal,
                     subtotal,
@@ -688,6 +1060,51 @@ router.post(
                 );
             }
 
+            /*
+             * Link the idempotency record to the newly created order
+             * BEFORE committing the transaction.
+             *
+             * Therefore:
+             *
+             * order + inventory reservation + idempotency record
+             *
+             * all commit together.
+             */
+            const [
+                idempotencyUpdateResult,
+            ] = await connection.query(
+                `
+                UPDATE checkout_idempotency
+                SET order_id = UNHEX(?)
+                WHERE user_id = UNHEX(?)
+                  AND idempotency_key = ?
+                  AND request_hash = ?
+                  AND order_id IS NULL
+                `,
+                [
+                    orderId,
+                    req.user.id,
+                    idempotencyKey,
+                    requestHash,
+                ],
+            );
+
+            /*
+             * The idempotency record must be linked successfully.
+             *
+             * If this fails, roll back the entire checkout so that
+             * we never create an order that cannot be recovered
+             * through its Idempotency-Key.
+             */
+            if (
+                idempotencyUpdateResult.affectedRows !==
+                1
+            ) {
+                throw new Error(
+                    'Unable to link checkout idempotency record to order.',
+                );
+            }
+
             await connection.commit();
 
             return res.status(201).json({
@@ -700,8 +1117,10 @@ router.post(
                     subtotal,
                     totalAmount: subtotal,
                     currency: 'INR',
-                    paymentMethod: PAYMENT_METHOD,
-                    paymentStatus: 'PENDING',
+                    paymentMethod:
+                        PAYMENT_METHOD,
+                    paymentStatus:
+                        'PENDING',
                     deliveryLocation:
                         DELIVERY_LOCATION,
                 },

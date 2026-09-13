@@ -1,4 +1,8 @@
 require('dotenv').config();
+
+const { validateEnv } = require('./config/env');
+
+validateEnv();
 const express = require('express');
 const db = require('./db');
 const authRoutes = require('./routes/auth');

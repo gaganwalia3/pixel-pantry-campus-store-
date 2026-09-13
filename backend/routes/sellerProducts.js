@@ -8,7 +8,10 @@ const {
 } = require('../middleware/rateLimit');
 const db = require('../db');
 const cloudinary = require('../config/cloudinary');
-const { imageUpload } = require('../middleware/upload');
+const {
+    imageUpload,
+    validateImageMagicBytes,
+} = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -758,6 +761,7 @@ router.post(
     '/:id/images',
     sellerProductRateLimiter,
     imageUpload.single('image'),
+    validateImageMagicBytes,
     async (req, res) => {
         let connection;
         let uploadedPublicId = null;
@@ -1808,6 +1812,35 @@ router.patch(
                     success: false,
                     message:
                         'Product inventory is invalid',
+                });
+            }
+
+            /*
+             * A product cannot be published without
+             * a primary image.
+             */
+            const [imageRows] =
+                await connection.execute(
+                    `SELECT
+                        id
+                     FROM product_images
+                     WHERE product_id = ?
+                       AND is_primary = 1
+                     LIMIT 1
+                     FOR UPDATE`,
+                    [productId],
+                );
+
+            if (
+                imageRows.length ===
+                0
+            ) {
+                await connection.rollback();
+
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        'Product image is required before publishing',
                 });
             }
 
