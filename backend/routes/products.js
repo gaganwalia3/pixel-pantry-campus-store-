@@ -6,6 +6,7 @@ const router = express.Router();
 const MAX_LIMIT = 50;
 const DEFAULT_LIMIT = 20;
 const MAX_SEARCH_LENGTH = 100;
+const MAX_SLUG_LENGTH = 100;
 
 const isValidLimit = (value) => {
     if (value === undefined) {
@@ -44,10 +45,143 @@ const cleanSearch = (value) => {
         .slice(0, MAX_SEARCH_LENGTH);
 };
 
+const cleanSlug = (value) => {
+    if (typeof value !== 'string') {
+        return '';
+    }
+
+    return value
+        .trim()
+        .toLowerCase()
+        .slice(0, MAX_SLUG_LENGTH);
+};
+
+
+/*
+ * ============================================================
+ * PUBLIC BRANDS
+ * ============================================================
+ *
+ * Only active brands are publicly exposed.
+ *
+ * Seller/application/private information is never returned.
+ */
+router.get('/brands', async (req, res) => {
+    try {
+        const [rows] = await db.query(
+            `
+            SELECT
+                HEX(id) AS id,
+                name,
+                slug,
+                description,
+                logo_url
+            FROM brands
+            WHERE is_active = 1
+            ORDER BY
+                name ASC,
+                id ASC
+            `,
+        );
+
+        const brands = rows.map(
+            (brand) => ({
+                id:
+                    brand.id.toLowerCase(),
+
+                name:
+                    brand.name,
+
+                slug:
+                    brand.slug,
+
+                description:
+                    brand.description,
+
+                logoUrl:
+                    brand.logo_url || null,
+            }),
+        );
+
+        return res.json({
+            success: true,
+            brands,
+        });
+    } catch (error) {
+        console.error(
+            'Public brands fetch failed:',
+            error,
+        );
+
+        return res.status(500).json({
+            success: false,
+            message:
+                'Unable to load brands',
+        });
+    }
+});
+router.get('/categories', async (req, res) => {
+    try {
+        const [rows] = await db.query(
+            `
+            SELECT
+                HEX(id) AS id,
+                name,
+                slug,
+                description
+            FROM categories
+            WHERE is_active = 1
+            ORDER BY
+                name ASC,
+                id ASC
+            `,
+        );
+
+        const categories = rows.map(
+            (category) => ({
+                id:
+                    category.id.toLowerCase(),
+
+                name:
+                    category.name,
+
+                slug:
+                    category.slug,
+
+                description:
+                    category.description,
+            }),
+        );
+
+        return res.json({
+            success: true,
+            categories,
+        });
+    } catch (error) {
+        console.error(
+            'Public categories fetch failed:',
+            error,
+        );
+
+        return res.status(500).json({
+            success: false,
+            message:
+                'Unable to load categories',
+        });
+    }
+});
+
+
+/*
+ * ============================================================
+ * PUBLIC PRODUCTS
+ * ============================================================
+ */
 router.get('/', async (req, res) => {
     try {
         const {
             category,
+            brand,
             q,
             limit,
             offset,
@@ -71,7 +205,7 @@ router.get('/', async (req, res) => {
             category !== undefined &&
             (
                 typeof category !== 'string' ||
-                category.length > 100
+                category.length > MAX_SLUG_LENGTH
             )
         ) {
             return res.status(400).json({
@@ -80,7 +214,22 @@ router.get('/', async (req, res) => {
             });
         }
 
+        if (
+            brand !== undefined &&
+            (
+                typeof brand !== 'string' ||
+                brand.length > MAX_SLUG_LENGTH
+            )
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid brand',
+            });
+        }
+
         const search = cleanSearch(q);
+        const categorySlug = cleanSlug(category);
+        const brandSlug = cleanSlug(brand);
 
         const parsedLimit =
             limit === undefined
@@ -101,13 +250,23 @@ router.get('/', async (req, res) => {
 
         const params = [];
 
-        if (category) {
+        if (categorySlug) {
             conditions.push(
                 'c.slug = ?',
             );
 
             params.push(
-                category.trim(),
+                categorySlug,
+            );
+        }
+
+        if (brandSlug) {
+            conditions.push(
+                'b.slug = ?',
+            );
+
+            params.push(
+                brandSlug,
             );
         }
 

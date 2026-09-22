@@ -7,7 +7,6 @@ const request = async (path) => {
         `${API_URL}${path}`,
         {
             credentials: 'include',
-
             headers: {
                 'Content-Type':
                     'application/json',
@@ -21,91 +20,88 @@ const request = async (path) => {
     if (!response.ok) {
         throw new Error(
             data.message ||
-            'Unable to load marketplace products.',
+            'Unable to load marketplace data.',
         );
     }
 
     return data;
 };
 
-const getCategoryMeta = (
-    categoryName,
-) => {
-    const categoryMeta = {
-        Audio: 'Sound & tech',
-        Home: 'Home comfort',
-        Daily: 'Daily carry',
-        Green: 'Green living',
-    };
-
-    return (
-        categoryMeta[
-        categoryName
-        ] ||
-        categoryName ||
-        'Campus essentials'
-    );
-};
-
-export const getPublicProducts =
+export const getPublicBrands =
     async () => {
         const data =
             await request(
-                '/api/products?limit=50&offset=0',
+                '/api/products/brands',
+            );
+
+        return data.brands;
+    };
+
+export const getPublicCategories =
+    async () => {
+        const data =
+            await request(
+                '/api/products/categories',
+            );
+
+        return data.categories;
+    };
+
+export const getPublicProducts =
+    async ({
+        category = '',
+        brand = '',
+        search = '',
+    } = {}) => {
+        const params =
+            new URLSearchParams({
+                limit: '50',
+                offset: '0',
+            });
+
+        if (category) {
+            params.set(
+                'category',
+                category,
+            );
+        }
+
+        if (brand) {
+            params.set(
+                'brand',
+                brand,
+            );
+        }
+
+        if (search) {
+            params.set(
+                'q',
+                search,
+            );
+        }
+
+        const data =
+            await request(
+                `/api/products?${params.toString()}`,
             );
 
         return data.products.map(
             (product) => ({
-                /*
-                 * Keep the complete product
-                 * returned by the backend.
-                 */
                 ...product,
 
-                /*
-                 * Keep the existing frontend
-                 * category shape.
-                 */
                 category:
-                    product.category.name,
+                    product.category,
 
-                /*
-                 * Existing category metadata.
-                 */
-                meta:
-                    getCategoryMeta(
-                        product.category.name,
-                    ),
+                brand:
+                    product.brand,
 
-                /*
-                 * Available stock for the
-                 * existing ProductCard logic.
-                 */
                 stock:
                     product.inventory
                         .availableQuantity,
 
-                /*
-                 * Product image returned by
-                 * /api/products.
-                 *
-                 * Example:
-                 *
-                 * {
-                 *     imageUrl: "...",
-                 *     altText: "...",
-                 *     sortOrder: 0,
-                 *     isPrimary: true
-                 * }
-                 */
                 image:
                     product.image || null,
 
-                /*
-                 * Keep the existing icon field
-                 * so the current UI continues
-                 * to work.
-                 */
                 iconClass: '',
             }),
         );
