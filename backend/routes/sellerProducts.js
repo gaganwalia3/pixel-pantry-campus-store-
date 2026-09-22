@@ -20,10 +20,10 @@ router.use(
     requireRole('SELLER'),
 );
 
-const MAX_NAME_LENGTH = 200;
-const MAX_DESCRIPTION_LENGTH = 5000;
-const MAX_PRICE = 99999999.99;
-const MAX_STOCK = 4294967295;
+const MAX_NAME_LENGTH = 120;
+const MAX_DESCRIPTION_LENGTH = 2000;
+const MAX_PRICE = 25000;
+const MAX_STOCK = 100;
 
 const isValidId = (value) => {
     return (
@@ -98,6 +98,86 @@ const createProductSlug = (
         .slice(0, 8)}`;
 };
 
+/*
+ * Resolve the authenticated seller's active brand.
+ *
+ * The seller_brands table is the authorization source of truth.
+ *
+ * The frontend-supplied brandId is NEVER trusted for
+ * authorization.
+ */
+const getSellerBrand = async (
+    connection,
+    sellerId,
+    lockRow = false,
+) => {
+    const [rows] =
+        await connection.execute(
+            `SELECT
+                b.id,
+                b.name,
+                b.slug,
+                b.description,
+                b.logo_url
+             FROM seller_brands sb
+             INNER JOIN brands b
+                ON b.id = sb.brand_id
+             WHERE sb.seller_id = ?
+               AND b.is_active = 1
+             LIMIT 1
+             ${lockRow
+                ? 'FOR UPDATE'
+                : ''
+            }`,
+            [sellerId],
+        );
+
+    return rows[0] || null;
+};
+
+/*
+ * Verify that the requested brand belongs to
+ * the authenticated seller.
+ */
+const requireSellerBrand = async (
+    connection,
+    sellerId,
+    brandId,
+) => {
+    const sellerBrand =
+        await getSellerBrand(
+            connection,
+            sellerId,
+            true,
+        );
+
+    if (!sellerBrand) {
+        return {
+            authorized: false,
+            reason: 'missing',
+            brand: null,
+        };
+    }
+
+    if (
+        !sellerBrand.id.equals(
+            brandId,
+        )
+    ) {
+        return {
+            authorized: false,
+            reason: 'mismatch',
+            brand: sellerBrand,
+        };
+    }
+
+    return {
+        authorized: true,
+        reason: null,
+        brand: sellerBrand,
+    };
+};
+
 
 /* =========================================================
    PRODUCT OPTIONS
@@ -106,9 +186,58 @@ const createProductSlug = (
 router.get(
     '/options',
     async (req, res) => {
+        let connection;
+
         try {
+            const sellerUserId =
+                Buffer.from(
+                    req.user.id,
+                    'hex',
+                );
+
+            connection =
+                await db.getConnection();
+
+            const [
+                sellerProfiles,
+            ] =
+                await connection.execute(
+                    `SELECT
+                        id,
+                        status
+                     FROM seller_profiles
+                     WHERE user_id = ?
+                     LIMIT 1`,
+                    [sellerUserId],
+                );
+
+            if (
+                sellerProfiles.length ===
+                0
+            ) {
+                return res.status(403).json({
+                    success: false,
+                    message:
+                        'Seller profile not found',
+                });
+            }
+
+            const sellerProfile =
+                sellerProfiles[0];
+
+            if (
+                sellerProfile.status !==
+                'ACTIVE'
+            ) {
+                return res.status(403).json({
+                    success: false,
+                    message:
+                        'Seller account is not active',
+                });
+            }
+
             const [categories] =
-                await db.execute(
+                await connection.execute(
                     `SELECT
                         id,
                         name,
@@ -119,17 +248,15 @@ router.get(
                      ORDER BY name ASC`,
                 );
 
-            const [brands] =
-                await db.execute(
-                    `SELECT
-                        id,
-                        name,
-                        slug,
-                        description,
-                        logo_url
-                     FROM brands
-                     WHERE is_active = 1
-                     ORDER BY name ASC`,
+            /*
+             * Only return the authenticated seller's
+             * own active brand.
+             */
+            const brand =
+                await getSellerBrand(
+                    connection,
+                    sellerProfile.id,
+                    false,
                 );
 
             return res.json({
@@ -138,9 +265,10 @@ router.get(
                 categories:
                     categories.map(
                         (category) => ({
-                            id: category.id.toString(
-                                'hex',
-                            ),
+                            id:
+                                category.id.toString(
+                                    'hex',
+                                ),
 
                             name:
                                 category.name,
@@ -153,12 +281,13 @@ router.get(
                         }),
                     ),
 
-                brands:
-                    brands.map(
-                        (brand) => ({
-                            id: brand.id.toString(
-                                'hex',
-                            ),
+                brands: brand
+                    ? [
+                        {
+                            id:
+                                brand.id.toString(
+                                    'hex',
+                                ),
 
                             name:
                                 brand.name,
@@ -171,8 +300,9 @@ router.get(
 
                             logoUrl:
                                 brand.logo_url,
-                        }),
-                    ),
+                        },
+                    ]
+                    : [],
             });
         } catch (error) {
             console.error(
@@ -185,6 +315,10 @@ router.get(
                 message:
                     'Unable to retrieve product options',
             });
+        } finally {
+            if (connection) {
+                connection.release();
+            }
         }
     },
 );
@@ -206,15 +340,16 @@ router.get(
 
             const [
                 sellerProfiles,
-            ] = await db.execute(
-                `SELECT
-                    id,
-                    status
-                 FROM seller_profiles
-                 WHERE user_id = ?
-                 LIMIT 1`,
-                [sellerUserId],
-            );
+            ] =
+                await db.execute(
+                    `SELECT
+                        id,
+                        status
+                     FROM seller_profiles
+                     WHERE user_id = ?
+                     LIMIT 1`,
+                    [sellerUserId],
+                );
 
             if (
                 sellerProfiles.length ===
@@ -318,9 +453,10 @@ router.get(
                 products:
                     products.map(
                         (product) => ({
-                            id: product.id.toString(
-                                'hex',
-                            ),
+                            id:
+                                product.id.toString(
+                                    'hex',
+                                ),
 
                             name:
                                 product.name,
@@ -547,6 +683,9 @@ router.post(
                 });
             }
 
+            /*
+             * Category must be active.
+             */
             const [categories] =
                 await connection.execute(
                     `SELECT id
@@ -570,26 +709,39 @@ router.post(
                 });
             }
 
-            const [brands] =
-                await connection.execute(
-                    `SELECT id
-                     FROM brands
-                     WHERE id = ?
-                       AND is_active = 1
-                     LIMIT 1`,
-                    [brandBuffer],
+            /*
+             * Brand authorization:
+             *
+             * The requested brand MUST be the
+             * authenticated seller's own brand.
+             */
+            const brandAuthorization =
+                await requireSellerBrand(
+                    connection,
+                    sellerProfile.id,
+                    brandBuffer,
                 );
 
             if (
-                brands.length ===
-                0
+                !brandAuthorization.authorized
             ) {
                 await connection.rollback();
 
-                return res.status(400).json({
+                if (
+                    brandAuthorization.reason ===
+                    'missing'
+                ) {
+                    return res.status(403).json({
+                        success: false,
+                        message:
+                            'Seller does not have an active brand',
+                    });
+                }
+
+                return res.status(403).json({
                     success: false,
                     message:
-                        'Invalid or inactive brand',
+                        'You can only use your own brand',
                 });
             }
 
@@ -693,9 +845,10 @@ router.post(
                     'Product created as draft',
 
                 product: {
-                    id: productId.toString(
-                        'hex',
-                    ),
+                    id:
+                        productId.toString(
+                            'hex',
+                        ),
 
                     sellerId:
                         sellerProfile.id.toString(
@@ -807,10 +960,6 @@ router.post(
 
             await connection.beginTransaction();
 
-            /*
-             * Resolve seller identity from the
-             * authenticated session.
-             */
             const [
                 sellerProfiles,
             ] =
@@ -854,10 +1003,6 @@ router.post(
                 });
             }
 
-            /*
-             * Lock the product and verify that
-             * THIS authenticated seller owns it.
-             */
             const [products] =
                 await connection.execute(
                     `SELECT
@@ -888,9 +1033,6 @@ router.post(
                 });
             }
 
-            /*
-             * Initial launch: one image per product.
-             */
             const [
                 existingImages,
             ] =
@@ -918,12 +1060,6 @@ router.post(
                 });
             }
 
-            /*
-             * Upload to Cloudinary.
-             *
-             * The image never gets permanently stored
-             * on our backend server.
-             */
             const uploadResult =
                 await new Promise(
                     (
@@ -976,10 +1112,6 @@ router.post(
             uploadedPublicId =
                 uploadResult.public_id;
 
-            /*
-             * Save only the Cloudinary URL and
-             * relevant metadata in our database.
-             */
             const imageId =
                 Buffer.from(
                     crypto
@@ -1055,11 +1187,6 @@ router.post(
                 }
             }
 
-            /*
-             * If Cloudinary succeeded but the database
-             * operation failed, remove the orphaned
-             * Cloudinary asset.
-             */
             if (
                 uploadedPublicId
             ) {
@@ -1202,10 +1329,6 @@ router.patch(
 
             await connection.beginTransaction();
 
-            /*
-             * Resolve seller identity from the
-             * authenticated session.
-             */
             const [
                 sellerProfiles,
             ] =
@@ -1249,11 +1372,6 @@ router.patch(
                 });
             }
 
-            /*
-             * Lock the product row and verify
-             * ownership using the seller profile
-             * resolved above.
-             */
             const [products] =
                 await connection.execute(
                     `SELECT
@@ -1284,9 +1402,6 @@ router.patch(
                 });
             }
 
-            /*
-             * Category must still be active.
-             */
             const [categories] =
                 await connection.execute(
                     `SELECT id
@@ -1311,28 +1426,35 @@ router.patch(
             }
 
             /*
-             * Brand must still be active.
+             * The brand must belong to this seller.
              */
-            const [brands] =
-                await connection.execute(
-                    `SELECT id
-                     FROM brands
-                     WHERE id = ?
-                       AND is_active = 1
-                     LIMIT 1`,
-                    [brandBuffer],
+            const brandAuthorization =
+                await requireSellerBrand(
+                    connection,
+                    sellerProfile.id,
+                    brandBuffer,
                 );
 
             if (
-                brands.length ===
-                0
+                !brandAuthorization.authorized
             ) {
                 await connection.rollback();
 
-                return res.status(400).json({
+                if (
+                    brandAuthorization.reason ===
+                    'missing'
+                ) {
+                    return res.status(403).json({
+                        success: false,
+                        message:
+                            'Seller does not have an active brand',
+                    });
+                }
+
+                return res.status(403).json({
                     success: false,
                     message:
-                        'Invalid or inactive brand',
+                        'You can only use your own brand',
                 });
             }
 
@@ -1352,14 +1474,6 @@ router.patch(
                 });
             }
 
-            /*
-             * Update product details.
-             *
-             * IMPORTANT:
-             * status is deliberately NOT included.
-             * Publishing/archiving will use dedicated
-             * endpoints later.
-             */
             await connection.execute(
                 `UPDATE products
                  SET
@@ -1384,9 +1498,6 @@ router.patch(
                 ],
             );
 
-            /*
-             * Lock the inventory row.
-             */
             const [
                 inventoryRows,
             ] =
@@ -1418,27 +1529,21 @@ router.patch(
             const inventory =
                 inventoryRows[0];
 
-            /*
-             * Never allow available stock to
-             * become negative.
-             *
-             * quantity must remain >=
-             * reserved_quantity.
-             */
-            if (
-                stock <
+            const reservedQuantity =
                 Number(
                     inventory.reserved_quantity,
-                )
+                );
+
+            if (
+                stock <
+                reservedQuantity
             ) {
                 await connection.rollback();
 
                 return res.status(400).json({
                     success: false,
                     message:
-                        `Stock cannot be lower than the currently reserved quantity (${Number(
-                            inventory.reserved_quantity,
-                        )})`,
+                        `Stock cannot be lower than the currently reserved quantity (${reservedQuantity})`,
                 });
             }
 
@@ -1567,11 +1672,6 @@ router.patch(
 
             await connection.beginTransaction();
 
-            /*
-             * Resolve seller from the authenticated
-             * session. Never trust a seller ID
-             * supplied by the frontend.
-             */
             const [
                 sellerProfiles,
             ] =
@@ -1615,9 +1715,6 @@ router.patch(
                 });
             }
 
-            /*
-             * Lock the product and verify ownership.
-             */
             const [products] =
                 await connection.execute(
                     `SELECT
@@ -1655,9 +1752,6 @@ router.patch(
             const product =
                 products[0];
 
-            /*
-             * Publishing is only allowed from DRAFT.
-             */
             if (
                 product.status !==
                 'DRAFT'
@@ -1671,10 +1765,6 @@ router.patch(
                 });
             }
 
-            /*
-             * Validate the product data again on
-             * the backend at publish time.
-             */
             if (
                 !isValidProductName(
                     product.name,
@@ -1698,9 +1788,6 @@ router.patch(
                 });
             }
 
-            /*
-             * Category must still be active.
-             */
             const [
                 categoryRows,
             ] =
@@ -1723,6 +1810,41 @@ router.patch(
                     success: false,
                     message:
                         'Product category is invalid or inactive',
+                });
+            }
+
+            /*
+             * The product's stored brand must still
+             * be the authenticated seller's own brand.
+             */
+            const sellerBrand =
+                await getSellerBrand(
+                    connection,
+                    sellerProfile.id,
+                    true,
+                );
+
+            if (!sellerBrand) {
+                await connection.rollback();
+
+                return res.status(403).json({
+                    success: false,
+                    message:
+                        'Seller does not have an active brand',
+                });
+            }
+
+            if (
+                !sellerBrand.id.equals(
+                    product.brand_id,
+                )
+            ) {
+                await connection.rollback();
+
+                return res.status(403).json({
+                    success: false,
+                    message:
+                        'Product brand does not belong to this seller',
                 });
             }
 
@@ -1752,9 +1874,6 @@ router.patch(
                 });
             }
 
-            /*
-             * A product must have an inventory row.
-             */
             const [
                 inventoryRows,
             ] =
@@ -1816,8 +1935,8 @@ router.patch(
             }
 
             /*
-             * A product cannot be published without
-             * a primary image.
+             * Product must have a primary image
+             * before it can become ACTIVE.
              */
             const [imageRows] =
                 await connection.execute(
@@ -1845,22 +1964,39 @@ router.patch(
             }
 
             /*
-             * All publish checks passed.
+             * All checks passed.
              *
-             * Status is changed ONLY here.
+             * Only this endpoint changes DRAFT
+             * products to ACTIVE.
              */
-            await connection.execute(
-                `UPDATE products
-                 SET
-                    status = 'ACTIVE'
-                 WHERE id = ?
-                   AND seller_id = ?
-                   AND status = 'DRAFT'`,
-                [
-                    productId,
-                    sellerProfile.id,
-                ],
-            );
+            const [
+                updateResult,
+            ] =
+                await connection.execute(
+                    `UPDATE products
+                     SET
+                        status = 'ACTIVE'
+                     WHERE id = ?
+                       AND seller_id = ?
+                       AND status = 'DRAFT'`,
+                    [
+                        productId,
+                        sellerProfile.id,
+                    ],
+                );
+
+            if (
+                updateResult.affectedRows !==
+                1
+            ) {
+                await connection.rollback();
+
+                return res.status(409).json({
+                    success: false,
+                    message:
+                        'Product could not be published because its state changed',
+                });
+            }
 
             await connection.commit();
 
