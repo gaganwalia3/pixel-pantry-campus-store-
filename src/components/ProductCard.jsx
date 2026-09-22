@@ -5,7 +5,8 @@ export default function ProductCard({
   onAddToCart,
 }) {
   const formattedPrice =
-    '₹' + product.price.toLocaleString('en-IN');
+    '₹' +
+    product.price.toLocaleString('en-IN');
 
   const handleCardClick = () => {
     /*
@@ -38,14 +39,17 @@ export default function ProductCard({
           <div
             className={`product-icon ${product.iconClass || ''
               }`}
-            style={product.iconStyle || {}}
+            style={
+              product.iconStyle || {}
+            }
           ></div>
         )}
       </div>
 
       <div className="product-info">
         <span className="product-meta">
-          {product.meta}
+          {product.category?.name ||
+            'Campus essentials'}
         </span>
 
         <h3>{product.name}</h3>

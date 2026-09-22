@@ -13,6 +13,8 @@ import {
 } from './features/auth/authStore';
 
 import {
+  getPublicBrands,
+  getPublicCategories,
   getPublicProducts,
 } from './features/products/productStore';
 
@@ -35,6 +37,10 @@ import AdminSellerApplications from './features/admin/AdminSellerApplications';
 import SellerDashboard from './features/seller/dashboard/SellerDashboard';
 import MyOrders from './features/orders/MyOrders';
 
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  'http://localhost:5000';
+
 export default function App() {
   const {
     cart,
@@ -46,15 +52,50 @@ export default function App() {
     itemCount,
   } = useCart();
 
+  /*
+   * ============================================================
+   * MARKETPLACE FILTER STATE
+   * ============================================================
+   *
+   * Empty string means no filter.
+   *
+   * Categories and brands are identified by their
+   * database slugs.
+   */
   const [
     activeCategory,
     setActiveCategory,
-  ] = useState('All');
+  ] = useState('');
+
+  const [
+    activeBrand,
+    setActiveBrand,
+  ] = useState('');
 
   const [
     searchQuery,
     setSearchQuery,
   ] = useState('');
+
+  const [
+    debouncedSearchQuery,
+    setDebouncedSearchQuery,
+  ] = useState('');
+
+  /*
+   * ============================================================
+   * MARKETPLACE DATA
+   * ============================================================
+   */
+  const [
+    categories,
+    setCategories,
+  ] = useState([]);
+
+  const [
+    brands,
+    setBrands,
+  ] = useState([]);
 
   const [
     marketplaceProducts,
@@ -71,14 +112,30 @@ export default function App() {
     setProductsError,
   ] = useState('');
 
-  const [authOpen, setAuthOpen] =
-    useState(false);
+  const [
+    catalogDefinitionsError,
+    setCatalogDefinitionsError,
+  ] = useState('');
 
-  const [requestOpen, setRequestOpen] =
-    useState(false);
+  /*
+   * ============================================================
+   * MODAL STATE
+   * ============================================================
+   */
+  const [
+    authOpen,
+    setAuthOpen,
+  ] = useState(false);
 
-  const [checkoutOpen, setCheckoutOpen] =
-    useState(false);
+  const [
+    requestOpen,
+    setRequestOpen,
+  ] = useState(false);
+
+  const [
+    checkoutOpen,
+    setCheckoutOpen,
+  ] = useState(false);
 
   const [
     sellerApplicationOpen,
@@ -100,17 +157,33 @@ export default function App() {
     setMyOrdersOpen,
   ] = useState(false);
 
-  const [session, setSession] =
-    useState({
-      isAuthenticated: false,
-      user: null,
-    });
+  /*
+   * ============================================================
+   * SESSION
+   * ============================================================
+   */
+  const [
+    session,
+    setSession,
+  ] = useState({
+    isAuthenticated: false,
+    user: null,
+  });
 
-  const [toastMsg, setToastMsg] =
-    useState('');
+  /*
+   * ============================================================
+   * TOAST
+   * ============================================================
+   */
+  const [
+    toastMsg,
+    setToastMsg,
+  ] = useState('');
 
-  const [toastShow, setToastShow] =
-    useState(false);
+  const [
+    toastShow,
+    setToastShow,
+  ] = useState(false);
 
   /*
    * ============================================================
@@ -118,81 +191,201 @@ export default function App() {
    * ============================================================
    *
    * One idempotency key is kept for the current checkout
-   * attempt so that browser/network retries reuse the
-   * exact same key.
+   * attempt so browser/network retries reuse the exact same key.
    *
-   * The key is cleared only after a successful checkout.
-   *
-   * This prevents:
-   *
-   * - double-click duplicate orders
-   * - frontend retries creating duplicates
-   * - lost-response retries creating duplicates
+   * The key is cleared only after successful checkout.
    */
   const checkoutIdempotencyKeyRef =
     useRef(null);
 
   /*
-   * Load the current session.
+   * ============================================================
+   * SEARCH DEBOUNCE
+   * ============================================================
+   *
+   * Search input updates immediately for the UI.
+   *
+   * Marketplace requests wait 300ms after the user stops typing.
    */
   useEffect(() => {
-    const loadSession = async () => {
-      const currentSession =
-        await getSession();
+    const timer =
+      window.setTimeout(() => {
+        setDebouncedSearchQuery(
+          searchQuery.trim(),
+        );
+      }, 300);
 
-      setSession(currentSession);
+    return () => {
+      window.clearTimeout(timer);
     };
+  }, [searchQuery]);
+
+  /*
+   * ============================================================
+   * LOAD SESSION
+   * ============================================================
+   */
+  useEffect(() => {
+    const loadSession =
+      async () => {
+        const currentSession =
+          await getSession();
+
+        setSession(
+          currentSession,
+        );
+      };
 
     loadSession();
   }, []);
 
   /*
-   * Load public marketplace products
-   * directly from the backend/database.
+   * ============================================================
+   * LOAD CATEGORIES + BRANDS
+   * ============================================================
+   *
+   * These are catalog definitions and are loaded directly
+   * from the database through the public API.
+   *
+   * No category or brand list is hardcoded in the frontend.
    */
   useEffect(() => {
     let cancelled = false;
 
-    const loadProducts = async () => {
-      try {
-        setProductsLoading(true);
-        setProductsError('');
-
-        const products =
-          await getPublicProducts();
-
-        if (!cancelled) {
-          setMarketplaceProducts(
-            products,
+    const loadCatalogDefinitions =
+      async () => {
+        try {
+          setCatalogDefinitionsError(
+            '',
           );
-        }
-      } catch (error) {
-        console.error(
-          'Marketplace products failed to load:',
-          error,
-        );
 
-        if (!cancelled) {
-          setProductsError(
-            error.message ||
-            'Unable to load marketplace products.',
+          const [
+            loadedCategories,
+            loadedBrands,
+          ] = await Promise.all([
+            getPublicCategories(),
+            getPublicBrands(),
+          ]);
+
+          if (cancelled) {
+            return;
+          }
+
+          setCategories(
+            loadedCategories,
           );
-        }
-      } finally {
-        if (!cancelled) {
-          setProductsLoading(false);
-        }
-      }
-    };
 
-    loadProducts();
+          setBrands(
+            loadedBrands,
+          );
+        } catch (error) {
+          console.error(
+            'Catalog definitions failed to load:',
+            error,
+          );
+
+          if (!cancelled) {
+            setCatalogDefinitionsError(
+              error.message ||
+              'Unable to load marketplace categories and brands.',
+            );
+          }
+        }
+      };
+
+    loadCatalogDefinitions();
 
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const showToast = (message) => {
+  /*
+   * ============================================================
+   * LOAD MARKETPLACE PRODUCTS
+   * ============================================================
+   *
+   * Filtering is performed by the backend/database.
+   *
+   * The frontend does not download a complete catalog and
+   * perform its own category/brand/search filtering.
+   *
+   * Category and brand changes apply immediately.
+   *
+   * Search is represented by debouncedSearchQuery so the
+   * backend is not called on every keystroke.
+   */
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadProducts =
+      async () => {
+        try {
+          setProductsLoading(
+            true,
+          );
+
+          setProductsError(
+            '',
+          );
+
+          const products =
+            await getPublicProducts({
+              category:
+                activeCategory,
+              brand:
+                activeBrand,
+              search:
+                debouncedSearchQuery,
+            });
+
+          if (cancelled) {
+            return;
+          }
+
+          setMarketplaceProducts(
+            products,
+          );
+        } catch (error) {
+          console.error(
+            'Marketplace products failed to load:',
+            error,
+          );
+
+          if (!cancelled) {
+            setProductsError(
+              error.message ||
+              'Unable to load marketplace products.',
+            );
+          }
+        } finally {
+          if (!cancelled) {
+            setProductsLoading(
+              false,
+            );
+          }
+        }
+      };
+
+    loadProducts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activeCategory,
+    activeBrand,
+    debouncedSearchQuery,
+  ]);
+
+  /*
+   * ============================================================
+   * TOAST
+   * ============================================================
+   */
+  const showToast = (
+    message,
+  ) => {
     setToastMsg(message);
     setToastShow(true);
 
@@ -201,6 +394,11 @@ export default function App() {
     }, 2700);
   };
 
+  /*
+   * ============================================================
+   * AUTHENTICATION
+   * ============================================================
+   */
   const handleAuthenticated = (
     authenticatedSession,
   ) => {
@@ -209,43 +407,60 @@ export default function App() {
     );
   };
 
-  const handleLogout = async () => {
-    try {
-      const csrfToken =
-        await getCsrfToken();
+  const handleLogout =
+    async () => {
+      try {
+        const csrfToken =
+          await getCsrfToken();
 
-      await signOut({
-        csrfToken,
-      });
+        await signOut({
+          csrfToken,
+        });
 
-      setSession({
-        isAuthenticated: false,
-        user: null,
-      });
+        setSession({
+          isAuthenticated:
+            false,
+          user: null,
+        });
 
-      setAdminPanelOpen(false);
-      setSellerDashboardOpen(false);
-      setMyOrdersOpen(false);
+        setAdminPanelOpen(
+          false,
+        );
 
-      /*
-       * A logged-out user must never reuse
-       * the previous authenticated checkout key.
-       */
-      checkoutIdempotencyKeyRef.current =
-        null;
+        setSellerDashboardOpen(
+          false,
+        );
 
-      showToast(
-        'You have been signed out.',
-      );
-    } catch (error) {
-      showToast(
-        error.message ||
-        'Unable to sign out.',
-      );
-    }
-  };
+        setMyOrdersOpen(
+          false,
+        );
 
-  const handleAddToCart = (product) => {
+        /*
+         * A logged-out user must never reuse
+         * the previous authenticated checkout key.
+         */
+        checkoutIdempotencyKeyRef.current =
+          null;
+
+        showToast(
+          'You have been signed out.',
+        );
+      } catch (error) {
+        showToast(
+          error.message ||
+          'Unable to sign out.',
+        );
+      }
+    };
+
+  /*
+   * ============================================================
+   * CART
+   * ============================================================
+   */
+  const handleAddToCart = (
+    product,
+  ) => {
     const result =
       addToCart(product);
 
@@ -290,7 +505,9 @@ export default function App() {
     customerPhone,
   }) => {
     try {
-      if (!session?.isAuthenticated) {
+      if (
+        !session?.isAuthenticated
+      ) {
         showToast(
           'Please sign in before placing your order.',
         );
@@ -298,7 +515,10 @@ export default function App() {
         return;
       }
 
-      if (session?.user?.role === 'ADMIN') {
+      if (
+        session?.user?.role ===
+        'ADMIN'
+      ) {
         showToast(
           'Admin accounts cannot place customer orders.',
         );
@@ -317,16 +537,14 @@ export default function App() {
       /*
        * Generate the idempotency key only once
        * for the current checkout attempt.
-       *
-       * window.crypto.randomUUID() uses the
-       * browser's cryptographically secure RNG.
        */
       if (
         !checkoutIdempotencyKeyRef.current
       ) {
         if (
           !window.crypto ||
-          typeof window.crypto.randomUUID !==
+          typeof window.crypto
+            .randomUUID !==
           'function'
         ) {
           showToast(
@@ -346,33 +564,35 @@ export default function App() {
       const csrfToken =
         await getCsrfToken();
 
-      const response = await fetch(
-        'http://localhost:5000/api/orders',
-        {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type':
-              'application/json',
-            'X-CSRF-Token':
-              csrfToken,
-            'Idempotency-Key':
-              idempotencyKey,
+      const response =
+        await fetch(
+          `${API_URL}/api/orders`,
+          {
+            method: 'POST',
+            credentials:
+              'include',
+            headers: {
+              'Content-Type':
+                'application/json',
+              'X-CSRF-Token':
+                csrfToken,
+              'Idempotency-Key':
+                idempotencyKey,
+            },
+            body: JSON.stringify({
+              customerName,
+              customerPhone,
+              items: cart.map(
+                (item) => ({
+                  productId:
+                    item.productId,
+                  quantity:
+                    item.quantity,
+                }),
+              ),
+            }),
           },
-          body: JSON.stringify({
-            customerName,
-            customerPhone,
-            items: cart.map(
-              (item) => ({
-                productId:
-                  item.productId,
-                quantity:
-                  item.quantity,
-              }),
-            ),
-          }),
-        },
-      );
+        );
 
       const data =
         await response.json();
@@ -394,7 +614,10 @@ export default function App() {
         null;
 
       clearCart();
-      setCheckoutOpen(false);
+
+      setCheckoutOpen(
+        false,
+      );
 
       showToast(
         `Order ${data.order.id} placed successfully!`,
@@ -422,25 +645,25 @@ export default function App() {
   };
 
   /*
-   * Open a product from My Orders.
-   *
-   * My Orders stores the product UUID from the
-   * order snapshot. The marketplace loads its
-   * current product UUID from the database.
-   *
-   * UUID comparison is therefore case-insensitive.
+   * ============================================================
+   * OPEN PRODUCT FROM MY ORDERS
+   * ============================================================
    */
   const handleOpenProduct = (
     productId,
   ) => {
-    setActiveCategory('All');
+    setActiveCategory('');
+    setActiveBrand('');
     setSearchQuery('');
+    setDebouncedSearchQuery('');
 
     const targetProduct =
       marketplaceProducts.find(
         (product) =>
-          String(product.id).toLowerCase() ===
-          String(productId).toLowerCase(),
+          String(product.id)
+            .toLowerCase() ===
+          String(productId)
+            .toLowerCase(),
       );
 
     if (!targetProduct) {
@@ -463,10 +686,12 @@ export default function App() {
         );
 
       if (productElement) {
-        productElement.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-        });
+        productElement.scrollIntoView(
+          {
+            behavior: 'smooth',
+            block: 'center',
+          },
+        );
 
         productElement.classList.add(
           'product-focus',
@@ -483,14 +708,6 @@ export default function App() {
 
       attempts += 1;
 
-      /*
-       * CatalogSection re-renders after the
-       * category/search state changes.
-       *
-       * Retry for a short period instead of
-       * incorrectly telling the customer that
-       * the product disappeared.
-       */
       if (attempts < 20) {
         window.requestAnimationFrame(
           findAndScroll,
@@ -509,11 +726,21 @@ export default function App() {
     );
   };
 
+  /*
+   * ============================================================
+   * CATEGORY FILTER
+   * ============================================================
+   */
   const handleCategorySelect = (
-    categoryKey,
+    categorySlug,
   ) => {
-    setActiveCategory(categoryKey);
+    setActiveCategory(
+      categorySlug,
+    );
+
+    setActiveBrand('');
     setSearchQuery('');
+    setDebouncedSearchQuery('');
 
     const catalogElement =
       document.getElementById(
@@ -521,74 +748,69 @@ export default function App() {
       );
 
     if (catalogElement) {
-      catalogElement.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      });
+      catalogElement.scrollIntoView(
+        {
+          behavior: 'smooth',
+          block: 'start',
+        },
+      );
     }
   };
 
-  const handleSearch = (query) => {
-    setSearchQuery(query);
-
-    if (query) {
-      setActiveCategory('All');
-    }
-  };
-
-  const normalizedSearchQuery =
-    searchQuery
-      .trim()
-      .toLowerCase();
-
-  const filteredProducts =
-    marketplaceProducts.filter(
-      (product) => {
-        const matchesCategory =
-          activeCategory === 'All' ||
-          product.category ===
-          activeCategory;
-
-        const matchesSearch =
-          !normalizedSearchQuery ||
-          product.name
-            .toLowerCase()
-            .includes(
-              normalizedSearchQuery,
-            ) ||
-          product.description
-            ?.toLowerCase()
-            .includes(
-              normalizedSearchQuery,
-            ) ||
-          product.category
-            .toLowerCase()
-            .includes(
-              normalizedSearchQuery,
-            ) ||
-          product.meta
-            .toLowerCase()
-            .includes(
-              normalizedSearchQuery,
-            ) ||
-          product.brand?.name
-            ?.toLowerCase()
-            .includes(
-              normalizedSearchQuery,
-            ) ||
-          product.seller?.shopName
-            ?.toLowerCase()
-            .includes(
-              normalizedSearchQuery,
-            );
-
-        return (
-          matchesCategory &&
-          matchesSearch
-        );
-      },
+  /*
+   * ============================================================
+   * BRAND FILTER
+   * ============================================================
+   */
+  const handleBrandSelect = (
+    brandSlug,
+  ) => {
+    setActiveBrand(
+      brandSlug,
     );
 
+    setActiveCategory('');
+    setSearchQuery('');
+    setDebouncedSearchQuery('');
+
+    const catalogElement =
+      document.getElementById(
+        'catalog',
+      );
+
+    if (catalogElement) {
+      catalogElement.scrollIntoView(
+        {
+          behavior: 'smooth',
+          block: 'start',
+        },
+      );
+    }
+  };
+
+  /*
+   * ============================================================
+   * SEARCH
+   * ============================================================
+   *
+   * Search is handled by the backend/database.
+   *
+   * The input state updates immediately.
+   * The marketplace request uses the debounced value.
+   */
+  const handleSearch = (
+    query,
+  ) => {
+    setSearchQuery(query);
+    setActiveCategory('');
+    setActiveBrand('');
+  };
+
+  /*
+   * ============================================================
+   * ACCOUNT LABEL
+   * ============================================================
+   */
   const accountLabel =
     session?.isAuthenticated
       ? `HEY, ${session.user.name}`
@@ -601,7 +823,9 @@ export default function App() {
       <main className="shell">
         <Navbar
           cartCount={itemCount}
-          accountLabel={accountLabel}
+          accountLabel={
+            accountLabel
+          }
           isAuthenticated={
             session?.isAuthenticated
           }
@@ -616,9 +840,13 @@ export default function App() {
           onOpenAuth={() =>
             setAuthOpen(true)
           }
-          onLogout={handleLogout}
+          onLogout={
+            handleLogout
+          }
           onOpenCheckout={() =>
-            setCheckoutOpen(true)
+            setCheckoutOpen(
+              true,
+            )
           }
           onOpenSellerApplication={() =>
             setSellerApplicationOpen(
@@ -631,15 +859,21 @@ export default function App() {
             )
           }
           onOpenAdminPanel={() =>
-            setAdminPanelOpen(true)
+            setAdminPanelOpen(
+              true,
+            )
           }
           onOpenMyOrders={() =>
-            setMyOrdersOpen(true)
+            setMyOrdersOpen(
+              true,
+            )
           }
         />
 
         <HeroSection
-          onSearch={handleSearch}
+          onSearch={
+            handleSearch
+          }
           onOpenRequest={() =>
             setRequestOpen(true)
           }
@@ -647,11 +881,39 @@ export default function App() {
 
         <Ticker />
 
-        <CategoriesSection
-          onSelectCategory={
-            handleCategorySelect
-          }
-        />
+        {catalogDefinitionsError ? (
+          <section
+            id="categories"
+            className="categories-section"
+          >
+            <div className="section-top">
+              <div>
+                <div className="eyebrow">
+                  Find your corner
+                </div>
+
+                <h2>
+                  Shop by brand
+                </h2>
+              </div>
+
+              <span className="small-link">
+                UNAVAILABLE
+              </span>
+            </div>
+
+            <div className="empty">
+              {catalogDefinitionsError}
+            </div>
+          </section>
+        ) : (
+          <CategoriesSection
+            brands={brands}
+            onSelectBrand={
+              handleBrandSelect
+            }
+          />
+        )}
 
         {productsLoading ? (
           <section
@@ -701,7 +963,8 @@ export default function App() {
               <div
                 className="empty"
                 style={{
-                  display: 'block',
+                  display:
+                    'block',
                 }}
               >
                 {productsError}
@@ -711,7 +974,10 @@ export default function App() {
         ) : (
           <CatalogSection
             products={
-              filteredProducts
+              marketplaceProducts
+            }
+            categories={
+              categories
             }
             activeCategory={
               activeCategory
@@ -723,7 +989,9 @@ export default function App() {
               handleAddToCart
             }
             onOpenRequest={() =>
-              setRequestOpen(true)
+              setRequestOpen(
+                true,
+              )
             }
           />
         )}
@@ -738,7 +1006,9 @@ export default function App() {
         onClose={() =>
           setAuthOpen(false)
         }
-        onToast={showToast}
+        onToast={
+          showToast
+        }
         onAuthenticated={
           handleAuthenticated
         }
@@ -749,11 +1019,15 @@ export default function App() {
         onClose={() =>
           setRequestOpen(false)
         }
-        onToast={showToast}
+        onToast={
+          showToast
+        }
       />
 
       <CheckoutModal
-        isOpen={checkoutOpen}
+        isOpen={
+          checkoutOpen
+        }
         onClose={() =>
           setCheckoutOpen(false)
         }
@@ -781,7 +1055,9 @@ export default function App() {
             false,
           )
         }
-        onToast={showToast}
+        onToast={
+          showToast
+        }
       />
 
       <SellerDashboard
@@ -793,15 +1069,23 @@ export default function App() {
             false,
           )
         }
-        onToast={showToast}
+        onToast={
+          showToast
+        }
       />
 
       <AdminSellerApplications
-        isOpen={adminPanelOpen}
-        onClose={() =>
-          setAdminPanelOpen(false)
+        isOpen={
+          adminPanelOpen
         }
-        onToast={showToast}
+        onClose={() =>
+          setAdminPanelOpen(
+            false,
+          )
+        }
+        onToast={
+          showToast
+        }
       />
 
       <MyOrders

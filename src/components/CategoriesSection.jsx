@@ -1,33 +1,47 @@
 import React from 'react';
-import { CATEGORIES } from '../data/products';
 
-export default function CategoriesSection({ onSelectCategory }) {
+export default function CategoriesSection({
+  brands,
+  onSelectBrand,
+}) {
   return (
     <section id="categories">
       <div className="section-top">
         <div>
-          <div className="eyebrow">Find your corner</div>
-          <h2>Shop by mood</h2>
+          <div className="eyebrow">
+            Find your corner
+          </div>
+
+          <h2>Shop by brand</h2>
         </div>
+
         <a
           className="small-link"
           href="#catalog"
-          onClick={() => onSelectCategory('All')}
+          onClick={() => onSelectBrand('')}
         >
           SEE EVERYTHING →
         </a>
       </div>
 
       <div className="categories">
-        {CATEGORIES.map((cat) => (
+        {brands.map((brand, index) => (
           <button
-            key={cat.id}
+            key={brand.id}
             className="category"
-            onClick={() => onSelectCategory(cat.catKey)}
+            type="button"
+            onClick={() =>
+              onSelectBrand(brand.slug)
+            }
           >
-            <span className="cat-num">{cat.num}</span>
+            <span className="cat-num">
+              {String(index + 1).padStart(2, '0')} /
+              BRAND
+            </span>
+
             <span className="mini-pixel"></span>
-            <h3>{cat.title}</h3>
+
+            <h3>{brand.name}</h3>
           </button>
         ))}
       </div>
