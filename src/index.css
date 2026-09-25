@@ -4530,6 +4530,7 @@ footer {
 .hero-copy {
   max-width: 640px;
   padding-top: 0;
+  transform: translateY(-28px);
 }
 
 .hero-art {
@@ -4561,8 +4562,20 @@ footer {
 
 /* BRANDS/CATEGORIES — size to actual database result count. */
 .categories {
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 1180px) {
+  .categories {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .categories {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .category {
@@ -5067,5 +5080,39 @@ footer {
 
   .product-art {
     height: 125px;
+  }
+}
+
+/* =========================================================
+   FINAL HERO + BRAND LAYOUT TUNING
+   ========================================================= */
+
+/* Desktop: bring hero content closer to the navbar */
+@media (min-width: 801px) {
+  .hero-copy {
+    transform: translateY(-38px);
+  }
+
+  .hero-store-image {
+    transform: translate(18px, -25px);
+  }
+
+  /* Show six brands across on desktop */
+  .categories {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+
+/* Mobile: hide the hero artwork completely */
+@media (max-width: 800px) {
+  .hero-art {
+    display: none;
+  }
+
+  /* Keep two brands/products per row */
+  .categories,
+  .products {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
