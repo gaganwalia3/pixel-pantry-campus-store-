@@ -56,12 +56,7 @@ app.use(
     }),
 );
 
-app.options('*', cors({
-    origin: allowedOrigin,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'X-CSRF-Token'],
-}));
+
 
 app.use(helmet());
 
