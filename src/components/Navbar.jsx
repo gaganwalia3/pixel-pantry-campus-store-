@@ -1,6 +1,4 @@
-import React, {
-  useState,
-} from 'react';
+import React, { useState } from 'react';
 
 export default function Navbar({
   cartCount,
@@ -16,27 +14,12 @@ export default function Navbar({
   onOpenAdminPanel,
   onOpenMyOrders,
 }) {
-  const [menuOpen, setMenuOpen] =
-    useState(false);
-
+  const [menuOpen, setMenuOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] =
     useState(false);
 
   const closeMenu = () => {
     setMenuOpen(false);
-  };
-
-  const handleSellerApplication = () => {
-    closeMenu();
-    onOpenSellerApplication();
-  };
-
-  const handleAuth = () => {
-    closeMenu();
-
-    if (!isAuthenticated) {
-      onOpenAuth();
-    }
   };
 
   const handleAccountClick = () => {
@@ -58,8 +41,8 @@ export default function Navbar({
   };
 
   const handleCheckout = () => {
-    closeMenu();
     setAccountMenuOpen(false);
+    closeMenu();
     onOpenCheckout();
   };
 
@@ -81,50 +64,45 @@ export default function Navbar({
     onOpenAdminPanel();
   };
 
+  const handleSellerApplication = () => {
+    closeMenu();
+    onOpenSellerApplication();
+  };
+
   return (
     <nav className="nav">
       <a
-        href="#"
+        href="#home"
         className="brand"
         onClick={closeMenu}
+        aria-label="SUPER Daily home"
       >
-        <span className="brand-mark">
-          <i></i>
-          <i></i>
-          <i></i>
-          <i></i>
-          <i></i>
-          <i></i>
-          <i></i>
-          <i></i>
-          <i></i>
-          <i></i>
-          <i></i>
-        </span>
-
-        <span className="brand-name">
-          PIXEL PANTRY
-        </span>
-
-        <span className="brand-tagline">
-          EVERYDAY ESSENTIALS
+        <span className="super-daily-logo">
+          <span className="logo-super">
+            SUPER
+          </span>
+          <span className="logo-daily">
+            Daily
+          </span>
         </span>
       </a>
 
       <div className="nav-links">
         <a href="#catalog">
-          CATALOG
+          SHOP
         </a>
 
         <a href="#categories">
           CATEGORIES
         </a>
 
+        <a href="#categories">
+          BRANDS
+        </a>
+
         <button
           type="button"
-          onClick={
-            handleSellerApplication
-          }
+          onClick={handleSellerApplication}
         >
           SELL WITH US
         </button>
@@ -136,12 +114,8 @@ export default function Navbar({
             <button
               type="button"
               className="account-greeting"
-              onClick={
-                handleAccountClick
-              }
-              aria-expanded={
-                accountMenuOpen
-              }
+              onClick={handleAccountClick}
+              aria-expanded={accountMenuOpen}
               aria-haspopup="menu"
             >
               {accountLabel}
@@ -156,9 +130,7 @@ export default function Navbar({
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={
-                      handleMyOrders
-                    }
+                    onClick={handleMyOrders}
                   >
                     MY ORDERS
                   </button>
@@ -168,9 +140,7 @@ export default function Navbar({
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={
-                      handleSellerDashboard
-                    }
+                    onClick={handleSellerDashboard}
                   >
                     SELLER DASHBOARD
                   </button>
@@ -180,9 +150,7 @@ export default function Navbar({
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={
-                      handleAdminPanel
-                    }
+                    onClick={handleAdminPanel}
                   >
                     ADMIN PANEL
                   </button>
@@ -191,9 +159,7 @@ export default function Navbar({
                 <button
                   type="button"
                   role="menuitem"
-                  onClick={
-                    handleLogout
-                  }
+                  onClick={handleLogout}
                 >
                   LOG OUT
                 </button>
@@ -203,7 +169,7 @@ export default function Navbar({
         ) : (
           <button
             type="button"
-            onClick={handleAuth}
+            onClick={onOpenAuth}
           >
             SIGN IN
           </button>
@@ -211,15 +177,17 @@ export default function Navbar({
 
         <button
           type="button"
-          onClick={
-            handleCheckout
-          }
+          className="bag-button"
+          onClick={handleCheckout}
           aria-label={`Open bag${cartCount > 0
-            ? ` with ${cartCount} items`
-            : ''
+              ? ` with ${cartCount} items`
+              : ''
             }`}
         >
-          BAG
+          <span className="bag-icon">
+            🛍
+          </span>
+          <span>BAG</span>
 
           {cartCount > 0 && (
             <span className="bag-count">
@@ -255,7 +223,7 @@ export default function Navbar({
           href="#catalog"
           onClick={closeMenu}
         >
-          CATALOG
+          SHOP
         </a>
 
         <a
@@ -265,11 +233,16 @@ export default function Navbar({
           CATEGORIES
         </a>
 
+        <a
+          href="#categories"
+          onClick={closeMenu}
+        >
+          BRANDS
+        </a>
+
         <button
           type="button"
-          onClick={
-            handleSellerApplication
-          }
+          onClick={handleSellerApplication}
         >
           SELL WITH US
         </button>
@@ -283,9 +256,7 @@ export default function Navbar({
             {!isAdmin && (
               <button
                 type="button"
-                onClick={
-                  handleMyOrders
-                }
+                onClick={handleMyOrders}
               >
                 MY ORDERS
               </button>
@@ -294,9 +265,7 @@ export default function Navbar({
             {isSeller && (
               <button
                 type="button"
-                onClick={
-                  handleSellerDashboard
-                }
+                onClick={handleSellerDashboard}
               >
                 SELLER DASHBOARD
               </button>
@@ -305,9 +274,7 @@ export default function Navbar({
             {isAdmin && (
               <button
                 type="button"
-                onClick={
-                  handleAdminPanel
-                }
+                onClick={handleAdminPanel}
               >
                 ADMIN PANEL
               </button>
@@ -315,9 +282,7 @@ export default function Navbar({
 
             <button
               type="button"
-              onClick={
-                handleLogout
-              }
+              onClick={handleLogout}
             >
               LOG OUT
             </button>
@@ -325,7 +290,10 @@ export default function Navbar({
         ) : (
           <button
             type="button"
-            onClick={handleAuth}
+            onClick={() => {
+              closeMenu();
+              onOpenAuth();
+            }}
           >
             SIGN IN
           </button>
@@ -333,9 +301,7 @@ export default function Navbar({
 
         <button
           type="button"
-          onClick={
-            handleCheckout
-          }
+          onClick={handleCheckout}
         >
           BAG
 

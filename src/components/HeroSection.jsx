@@ -1,66 +1,104 @@
 import React, { useState } from 'react';
 
-export default function HeroSection({ onSearch, onOpenRequest }) {
+export default function HeroSection({
+  onSearch,
+  onOpenRequest,
+}) {
   const [query, setQuery] = useState('');
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSearch(query);
-    const catalogEl = document.getElementById('catalog');
-    if (catalogEl) {
-      catalogEl.scrollIntoView({ behavior: 'smooth' });
+  const scrollToCatalog = () => {
+    const catalogElement = document.getElementById('catalog');
+
+    if (catalogElement) {
+      catalogElement.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
     }
+  };
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+
+    onSearch(query);
+    scrollToCatalog();
   };
 
   return (
     <section className="hero" id="home">
-      <div>
-        <div className="eyebrow">The everyday edit · 01</div>
+      <div className="hero-copy">
+        <div className="hero-eyebrow">
+          CAMPUS MARKETPLACE
+        </div>
+
         <h1>
-          Small things.<br />
-          <em>Big feeling.</em>
+          Your own
+          <br />
+          <span>super store</span>
         </h1>
+
         <p>
-          A calmer way to find the objects that make your daily rhythm feel more
-          like you. Consider this your very good-looking corner shop.
+          Shop daily essentials, college favourites and
+          unique finds from students, for students.
         </p>
 
-        <form className="search" onSubmit={handleSubmit}>
+        <form
+          className="hero-search"
+          onSubmit={handleSubmit}
+        >
           <svg
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
             strokeWidth="2"
+            aria-hidden="true"
           >
-            <circle cx="11" cy="11" r="6"></circle>
-            <path d="m20 20-4.2-4.2"></path>
+            <circle cx="11" cy="11" r="6" />
+            <path d="m20 20-4.2-4.2" />
           </svg>
+
           <input
             id="searchInput"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Find something lovely…"
+            onChange={(event) =>
+              setQuery(event.target.value)
+            }
+            placeholder="Search for snacks, stationery, apparel and more..."
             aria-label="Search the catalogue"
           />
-          <button type="submit">Search</button>
+
+          <button type="submit">
+            Search
+          </button>
         </form>
 
         <div className="hero-actions">
-          <a className="link-btn" href="#catalog">
-            Explore collection ↓
-          </a>
-          <button className="link-btn" onClick={onOpenRequest}>
-            Can’t find it?
+          <button
+            type="button"
+            className="hero-primary-button"
+            onClick={scrollToCatalog}
+          >
+            Shop now
+            <span aria-hidden="true">→</span>
+          </button>
+
+          <button
+            type="button"
+            className="hero-secondary-button"
+            onClick={onOpenRequest}
+          >
+            Request a product
           </button>
         </div>
       </div>
 
-      <div className="pixel-scene" aria-label="Pixel-art shopping bag illustration">
-        <div className="checker"></div>
-        <div className="pixel spark one"></div>
-        <div className="pixel spark two"></div>
-        <div className="pixel pixel-hand"></div>
-        <div className="pixel pixel-bag"></div>
+      <div className="hero-art" aria-hidden="true">
+        <img
+          className="hero-store-image"
+          src="/super-daily-store-transparent-16.png"
+          alt=""
+          draggable="false"
+        />
       </div>
     </section>
   );
