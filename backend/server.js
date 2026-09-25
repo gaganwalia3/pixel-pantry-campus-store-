@@ -3,6 +3,7 @@ require('dotenv').config();
 const { validateEnv } = require('./config/env');
 
 validateEnv();
+
 const express = require('express');
 const db = require('./db');
 const authRoutes = require('./routes/auth');
@@ -44,19 +45,34 @@ const sessionStore = new ConnectSessionKnexStore({
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
 
-const allowedOrigin = process.env.FRONTEND_URL;
+const allowedOrigin = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
 
-app.use(
-    cors({
-        origin: allowedOrigin,
-        credentials: true,
-        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'X-CSRF-Token'],
-        optionsSuccessStatus: 204,
-    }),
-);
+const corsOptions = {
+    origin: allowedOrigin,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+        'Content-Type',
+        'X-CSRF-Token',
+    ],
+    optionsSuccessStatus: 204,
+};
 
+/*
+ * CORS
+ *
+ * This must run before sessions, CSRF protection,
+ * and all API routes.
+ */
+app.use(cors(corsOptions));
 
+/*
+ * Explicit Express 5-compatible preflight handling.
+ *
+ * Do NOT use app.options('*', ...) here because Express 5
+ * does not accept the old wildcard syntax.
+ */
+app.options(/.*/, cors(corsOptions));
 
 app.use(helmet());
 
@@ -78,38 +94,80 @@ app.use(
     }),
 );
 
+/*
+ * CSRF protection comes AFTER CORS/preflight handling.
+ */
 app.use(csrfSynchronisedProtection);
 
+/*
+ * Authentication
+ */
 app.use('/api/auth', authRoutes);
 
-app.use('/api/seller-applications', sellerApplicationRoutes);
+/*
+ * Seller applications
+ */
+app.use(
+    '/api/seller-applications',
+    sellerApplicationRoutes,
+);
 
 app.use(
     '/api/admin/seller-applications',
     adminSellerApplicationRoutes,
 );
 
-app.use('/api/seller/products', sellerProductRoutes);
+/*
+ * Seller products
+ */
+app.use(
+    '/api/seller/products',
+    sellerProductRoutes,
+);
 
+/*
+ * Seller dashboard
+ */
 app.use(
     '/api/seller/dashboard',
     sellerDashboardRoutes,
 );
 
-app.use('/api/products', productRoutes);
+/*
+ * Public products
+ */
+app.use(
+    '/api/products',
+    productRoutes,
+);
 
-app.use('/api/orders', orderRoutes);
+/*
+ * Orders
+ */
+app.use(
+    '/api/orders',
+    orderRoutes,
+);
 
+/*
+ * Admin orders
+ */
 app.use(
     '/api/admin/orders',
     adminOrderRoutes,
 );
 
+/*
+ * Seller orders
+ */
 app.use(
     '/api/seller/orders',
     sellerOrderRoutes,
 );
 
+/*
+ * Health check
+ */
 app.get('/api/health', async (req, res) => {
     try {
         await db.query('SELECT 1');
@@ -128,6 +186,11 @@ app.get('/api/health', async (req, res) => {
     }
 });
 
+/*
+ * Start server
+ */
 app.listen(PORT, () => {
-    console.log(`Campus Store backend running on http://localhost:${PORT}`);
+    console.log(
+        `Campus Store backend running on port ${PORT}`,
+    );
 });
