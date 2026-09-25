@@ -189,8 +189,8 @@ app.get('/api/health', async (req, res) => {
 /*
  * Start server
  */
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(
-        `Campus Store backend running on port ${PORT}`,
+        `Campus Store backend running on 0.0.0.0:${PORT}`,
     );
 });
