@@ -44,12 +44,24 @@ const sessionStore = new ConnectSessionKnexStore({
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
 
+const allowedOrigin = process.env.FRONTEND_URL;
+
 app.use(
     cors({
-        origin: process.env.FRONTEND_URL,
+        origin: allowedOrigin,
         credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'X-CSRF-Token'],
+        optionsSuccessStatus: 204,
     }),
 );
+
+app.options('*', cors({
+    origin: allowedOrigin,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'X-CSRF-Token'],
+}));
 
 app.use(helmet());
 
