@@ -1,4 +1,4 @@
-USE campus_store;
+
 
 -- ============================================================
 -- 004_canonical_catalog_foundation.sql
