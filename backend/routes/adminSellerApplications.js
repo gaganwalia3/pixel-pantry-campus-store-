@@ -6,6 +6,15 @@ const db = require('../db');
 
 const router = express.Router();
 
+const createSlug = (name) =>
+    name
+        .trim()
+        .toLowerCase()
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+
 router.use(requireAuth, requireRole('ADMIN'));
 
 router.get('/', async (req, res) => {
@@ -140,6 +149,7 @@ router.patch('/:id', async (req, res) => {
                 id,
                 user_id,
                 shop_name,
+                description,
                 status
              FROM seller_applications
              WHERE id = ?
@@ -169,13 +179,14 @@ router.patch('/:id', async (req, res) => {
         }
 
         if (status === 'APPROVED') {
-            const [existingProfiles] = await connection.execute(
-                `SELECT id
-                 FROM seller_profiles
-                 WHERE user_id = ?
-                 LIMIT 1`,
-                [application.user_id],
-            );
+            const [existingProfiles] =
+                await connection.execute(
+                    `SELECT id
+                     FROM seller_profiles
+                     WHERE user_id = ?
+                     LIMIT 1`,
+                    [application.user_id],
+                );
 
             if (existingProfiles.length > 0) {
                 await connection.rollback();
@@ -207,30 +218,61 @@ router.patch('/:id', async (req, res) => {
                 });
             }
 
+            const brandName =
+                typeof application.shop_name === 'string'
+                    ? application.shop_name.trim()
+                    : '';
+
+            if (brandName.length < 2 || brandName.length > 120) {
+                await connection.rollback();
+
+                return res.status(409).json({
+                    success: false,
+                    message:
+                        'The application has an invalid brand name',
+                });
+            }
+
+            const brandSlug = createSlug(brandName);
+
+            if (!brandSlug) {
+                await connection.rollback();
+
+                return res.status(409).json({
+                    success: false,
+                    message: 'Unable to generate a valid brand slug',
+                });
+            }
+
+            const [existingBrands] =
+                await connection.execute(
+                    `SELECT id
+                     FROM brands
+                     WHERE name = ?
+                        OR slug = ?
+                     LIMIT 1
+                     FOR UPDATE`,
+                    [brandName, brandSlug],
+                );
+
+            if (existingBrands.length > 0) {
+                await connection.rollback();
+
+                return res.status(409).json({
+                    success: false,
+                    message:
+                        'A brand with this name already exists',
+                });
+            }
+
             const sellerProfileId = Buffer.from(
                 crypto.randomUUID().replace(/-/g, ''),
                 'hex',
             );
 
-            await connection.execute(
-                `UPDATE seller_applications
-                 SET
-                    status = 'APPROVED',
-                    reviewed_by = ?,
-                    reviewed_at = CURRENT_TIMESTAMP(6),
-                    rejection_reason = NULL
-                 WHERE id = ?`,
-                [
-                    Buffer.from(req.user.id, 'hex'),
-                    application.id,
-                ],
-            );
-
-            await connection.execute(
-                `UPDATE users
-                 SET role = 'SELLER'
-                 WHERE id = ?`,
-                [application.user_id],
+            const brandId = Buffer.from(
+                crypto.randomUUID().replace(/-/g, ''),
+                'hex',
             );
 
             await connection.execute(
@@ -250,7 +292,72 @@ router.patch('/:id', async (req, res) => {
                 [
                     sellerProfileId,
                     application.user_id,
-                    application.shop_name,
+                    brandName,
+                ],
+            );
+
+            await connection.execute(
+                `INSERT INTO brands (
+                    id,
+                    name,
+                    slug,
+                    description,
+                    logo_url,
+                    is_active,
+                    created_at,
+                    updated_at
+                ) VALUES (
+                    ?,
+                    ?,
+                    ?,
+                    ?,
+                    NULL,
+                    1,
+                    CURRENT_TIMESTAMP(6),
+                    CURRENT_TIMESTAMP(6)
+                )`,
+                [
+                    brandId,
+                    brandName,
+                    brandSlug,
+                    application.description || null,
+                ],
+            );
+
+            await connection.execute(
+                `INSERT INTO seller_brands (
+                    seller_id,
+                    brand_id,
+                    created_at
+                ) VALUES (
+                    ?,
+                    ?,
+                    CURRENT_TIMESTAMP(6)
+                )`,
+                [
+                    sellerProfileId,
+                    brandId,
+                ],
+            );
+
+            await connection.execute(
+                `UPDATE users
+                 SET role = 'SELLER'
+                 WHERE id = ?`,
+                [application.user_id],
+            );
+
+            await connection.execute(
+                `UPDATE seller_applications
+                 SET
+                    status = 'APPROVED',
+                    reviewed_by = ?,
+                    reviewed_at = CURRENT_TIMESTAMP(6),
+                    rejection_reason = NULL
+                 WHERE id = ?`,
+                [
+                    Buffer.from(req.user.id, 'hex'),
+                    application.id,
                 ],
             );
         } else {
