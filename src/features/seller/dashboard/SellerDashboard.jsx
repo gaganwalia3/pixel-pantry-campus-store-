@@ -13,8 +13,9 @@ import ProductPreviewModal from '../products/ProductPreviewModal';
 import SellerOrders from '../orders/SellerOrders';
 
 const API_URL =
-    import.meta.env.VITE_API_URL ||
-    'http://localhost:5000';
+    import.meta.env.DEV
+        ? 'http://localhost:5000'
+        : '';
 
 const getSellerDashboard = async () => {
     const response = await fetch(

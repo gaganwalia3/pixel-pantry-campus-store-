@@ -4,8 +4,9 @@ import React, {
 } from 'react';
 
 const API_URL =
-    import.meta.env.VITE_API_URL ||
-    'http://localhost:5000';
+    import.meta.env.DEV
+        ? 'http://localhost:5000'
+        : '';
 
 const STATUS_LABELS = {
     PENDING: 'Order received',
@@ -94,8 +95,8 @@ function StatusTracker({ status }) {
                         <div
                             key={step}
                             className={`my-orders-step ${isComplete
-                                    ? 'complete'
-                                    : ''
+                                ? 'complete'
+                                : ''
                                 } ${index === currentIndex
                                     ? 'current'
                                     : ''
