@@ -1,0 +1,8 @@
+{
+    "rewrites": [
+        {
+            "source": "/api/:path*",
+            "destination": "https://campus-store-backend-dyy4.onrender.com/api/:path*"
+        }
+    ]
+}
