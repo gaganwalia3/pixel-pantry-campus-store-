@@ -5614,3 +5614,75 @@ footer {
     display: inline-flex !important;
   }
 }
+
+/* =========================================================
+   REQUEST CARD + BENEFITS — CLOSER FOOTER COMPOSITION
+   ========================================================= */
+
+/* Desktop */
+@media (min-width: 901px) {
+  .catalog {
+    padding-bottom: 34px;
+  }
+
+  .request-card {
+    margin-top: 28px;
+    margin-bottom: 0;
+  }
+
+  .benefits {
+    padding-top: 34px;
+    padding-bottom: 34px;
+
+    gap: 26px;
+  }
+}
+
+
+/* Tablet + Mobile */
+@media (max-width: 900px) {
+  .catalog {
+    padding-bottom: 24px;
+  }
+
+  .request-card {
+    margin-top: 24px;
+    margin-bottom: 0;
+  }
+
+  .benefits {
+    padding-top: 26px;
+    padding-bottom: 30px;
+
+    gap: 18px;
+  }
+}
+
+
+/* Small phones */
+@media (max-width: 600px) {
+  .catalog {
+    padding-bottom: 20px;
+  }
+
+  .request-card {
+    margin-top: 20px;
+
+    gap: 14px;
+
+    padding: 22px 20px;
+  }
+
+  .benefits {
+    grid-template-columns: 1fr;
+
+    padding-top: 24px;
+    padding-bottom: 28px;
+
+    gap: 18px;
+  }
+
+  .benefit {
+    gap: 11px;
+  }
+}
