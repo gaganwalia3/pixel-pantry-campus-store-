@@ -14,12 +14,21 @@ export default function Navbar({
   onOpenAdminPanel,
   onOpenMyOrders,
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuOpen, setMenuOpen] =
+    useState(false);
+
   const [accountMenuOpen, setAccountMenuOpen] =
+    useState(false);
+
+  const [profileMenuOpen, setProfileMenuOpen] =
     useState(false);
 
   const closeMenu = () => {
     setMenuOpen(false);
+  };
+
+  const closeProfileMenu = () => {
+    setProfileMenuOpen(false);
   };
 
   const handleAccountClick = () => {
@@ -35,6 +44,7 @@ export default function Navbar({
 
   const handleLogout = async () => {
     setAccountMenuOpen(false);
+    closeProfileMenu();
     closeMenu();
 
     await onLogout();
@@ -42,51 +52,84 @@ export default function Navbar({
 
   const handleCheckout = () => {
     setAccountMenuOpen(false);
+    closeProfileMenu();
     closeMenu();
+
     onOpenCheckout();
   };
 
   const handleMyOrders = () => {
     setAccountMenuOpen(false);
+    closeProfileMenu();
     closeMenu();
+
     onOpenMyOrders();
   };
 
   const handleSellerDashboard = () => {
     setAccountMenuOpen(false);
+    closeProfileMenu();
     closeMenu();
+
     onOpenSellerDashboard();
   };
 
   const handleAdminPanel = () => {
     setAccountMenuOpen(false);
+    closeProfileMenu();
     closeMenu();
+
     onOpenAdminPanel();
   };
 
   const handleSellerApplication = () => {
     closeMenu();
+    closeProfileMenu();
+
     onOpenSellerApplication();
+  };
+
+  const handleMobileProfileClick = () => {
+    setMenuOpen(false);
+
+    if (!isAuthenticated) {
+      onOpenAuth();
+      return;
+    }
+
+    setProfileMenuOpen(
+      (open) => !open,
+    );
   };
 
   return (
     <nav className="nav">
+      {/* =====================================================
+          BRAND
+          ===================================================== */}
       <a
         href="#home"
         className="brand"
-        onClick={closeMenu}
+        onClick={() => {
+          closeMenu();
+          closeProfileMenu();
+        }}
         aria-label="SUPER Campus home"
       >
         <span className="super-campus-logo">
           <span className="logo-super">
             SUPER
           </span>
+
           <span className="logo-campus">
             Campus
           </span>
         </span>
       </a>
 
+      {/* =====================================================
+          DESKTOP LINKS
+          ===================================================== */}
       <div className="nav-links">
         <a href="#catalog">
           SHOP
@@ -102,20 +145,33 @@ export default function Navbar({
 
         <button
           type="button"
-          onClick={handleSellerApplication}
+          onClick={
+            handleSellerApplication
+          }
         >
           SELL WITH US
         </button>
       </div>
 
+      {/* =====================================================
+          NAV ACTIONS
+          ===================================================== */}
       <div className="nav-actions">
+
+        {/* ---------------------------------------------------
+            DESKTOP ACCOUNT
+            --------------------------------------------------- */}
         {isAuthenticated ? (
           <div className="account-area">
             <button
               type="button"
               className="account-greeting"
-              onClick={handleAccountClick}
-              aria-expanded={accountMenuOpen}
+              onClick={
+                handleAccountClick
+              }
+              aria-expanded={
+                accountMenuOpen
+              }
               aria-haspopup="menu"
             >
               {accountLabel}
@@ -130,7 +186,9 @@ export default function Navbar({
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={handleMyOrders}
+                    onClick={
+                      handleMyOrders
+                    }
                   >
                     MY ORDERS
                   </button>
@@ -140,7 +198,9 @@ export default function Navbar({
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={handleSellerDashboard}
+                    onClick={
+                      handleSellerDashboard
+                    }
                   >
                     SELLER DASHBOARD
                   </button>
@@ -150,7 +210,9 @@ export default function Navbar({
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={handleAdminPanel}
+                    onClick={
+                      handleAdminPanel
+                    }
                   >
                     ADMIN PANEL
                   </button>
@@ -159,7 +221,9 @@ export default function Navbar({
                 <button
                   type="button"
                   role="menuitem"
-                  onClick={handleLogout}
+                  onClick={
+                    handleLogout
+                  }
                 >
                   LOG OUT
                 </button>
@@ -175,18 +239,55 @@ export default function Navbar({
           </button>
         )}
 
+        {/* ---------------------------------------------------
+            MOBILE PROFILE BUTTON
+            --------------------------------------------------- */}
+        <button
+          type="button"
+          className="mobile-profile-button"
+          onClick={
+            handleMobileProfileClick
+          }
+          aria-label={
+            isAuthenticated
+              ? 'Open profile menu'
+              : 'Sign in'
+          }
+          aria-expanded={
+            profileMenuOpen
+          }
+          aria-haspopup="menu"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <circle
+              cx="12"
+              cy="8"
+              r="3.5"
+            />
+
+            <path
+              d="M5 20c.7-3.2 3.1-5 7-5s6.3 1.8 7 5"
+            />
+          </svg>
+        </button>
+
+        {/* ---------------------------------------------------
+            BAG
+            --------------------------------------------------- */}
         <button
           type="button"
           className="bag-button"
           onClick={handleCheckout}
-          aria-label={`Open bag${cartCount > 0
-            ? ` with ${cartCount} items`
-            : ''
-            }`}
+          aria-label={
+            `Open bag${cartCount > 0
+              ? ` with ${cartCount} items`
+              : ''
+            }`
+          }
         >
-          <span className="bag-icon">
-            🛍
-          </span>
           <span>BAG</span>
 
           {cartCount > 0 && (
@@ -196,6 +297,9 @@ export default function Navbar({
           )}
         </button>
 
+        {/* ---------------------------------------------------
+            HAMBURGER
+            --------------------------------------------------- */}
         <button
           type="button"
           className="menu-toggle"
@@ -205,16 +309,116 @@ export default function Navbar({
               : 'Open menu'
           }
           aria-expanded={menuOpen}
-          onClick={() =>
+          onClick={() => {
+            setProfileMenuOpen(false);
+
             setMenuOpen(
               (open) => !open,
-            )
-          }
+            );
+          }}
         >
           {menuOpen ? '×' : '☰'}
         </button>
       </div>
 
+      {/* =====================================================
+          MOBILE PROFILE MENU
+          ===================================================== */}
+      <div
+        className={`mobile-profile-menu ${profileMenuOpen
+            ? 'open'
+            : ''
+          }`}
+        role="menu"
+      >
+        {isAuthenticated ? (
+          <>
+            <div className="mobile-profile-header">
+              <span className="mobile-profile-avatar">
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <circle
+                    cx="12"
+                    cy="8"
+                    r="3.5"
+                  />
+
+                  <path
+                    d="M5 20c.7-3.2 3.1-5 7-5s6.3 1.8 7 5"
+                  />
+                </svg>
+              </span>
+
+              <span>
+                {accountLabel}
+              </span>
+            </div>
+
+            {!isAdmin && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={
+                  handleMyOrders
+                }
+              >
+                MY ORDERS
+              </button>
+            )}
+
+            {isSeller && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={
+                  handleSellerDashboard
+                }
+              >
+                SELLER DASHBOARD
+              </button>
+            )}
+
+            {isAdmin && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={
+                  handleAdminPanel
+                }
+              >
+                ADMIN PANEL
+              </button>
+            )}
+
+            <button
+              type="button"
+              role="menuitem"
+              onClick={
+                handleLogout
+              }
+            >
+              LOG OUT
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              closeProfileMenu();
+              onOpenAuth();
+            }}
+          >
+            SIGN IN
+          </button>
+        )}
+      </div>
+
+      {/* =====================================================
+          MOBILE NAVIGATION MENU
+          ===================================================== */}
       <div
         className={`mobile-menu ${menuOpen ? 'open' : ''
           }`}
@@ -242,74 +446,11 @@ export default function Navbar({
 
         <button
           type="button"
-          onClick={handleSellerApplication}
+          onClick={
+            handleSellerApplication
+          }
         >
           SELL WITH US
-        </button>
-
-        {isAuthenticated ? (
-          <>
-            <div className="mobile-account-greeting">
-              {accountLabel}
-            </div>
-
-            {!isAdmin && (
-              <button
-                type="button"
-                onClick={handleMyOrders}
-              >
-                MY ORDERS
-              </button>
-            )}
-
-            {isSeller && (
-              <button
-                type="button"
-                onClick={handleSellerDashboard}
-              >
-                SELLER DASHBOARD
-              </button>
-            )}
-
-            {isAdmin && (
-              <button
-                type="button"
-                onClick={handleAdminPanel}
-              >
-                ADMIN PANEL
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={handleLogout}
-            >
-              LOG OUT
-            </button>
-          </>
-        ) : (
-          <button
-            type="button"
-            onClick={() => {
-              closeMenu();
-              onOpenAuth();
-            }}
-          >
-            SIGN IN
-          </button>
-        )}
-
-        <button
-          type="button"
-          onClick={handleCheckout}
-        >
-          BAG
-
-          {cartCount > 0 && (
-            <span className="bag-count">
-              {cartCount}
-            </span>
-          )}
         </button>
       </div>
     </nav>
