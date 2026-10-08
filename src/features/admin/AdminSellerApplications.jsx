@@ -34,6 +34,12 @@ export default function AdminSellerApplications({
     const [ordersLoading, setOrdersLoading] =
         useState(false);
 
+    const [orderCustomerFilter, setOrderCustomerFilter] =
+        useState('');
+
+    const [orderDateFilter, setOrderDateFilter] =
+        useState('');
+
     const [reviewingId, setReviewingId] =
         useState(null);
 
@@ -191,6 +197,58 @@ export default function AdminSellerApplications({
             'en-IN',
         );
     };
+    const formatDateInputValue = (date) => {
+        if (!date) {
+            return '';
+        }
+
+        const parsedDate = new Date(date);
+
+        if (Number.isNaN(parsedDate.getTime())) {
+            return '';
+        }
+
+        const year = parsedDate.getFullYear();
+
+        const month = String(
+            parsedDate.getMonth() + 1,
+        ).padStart(2, '0');
+
+        const day = String(
+            parsedDate.getDate(),
+        ).padStart(2, '0');
+
+        return year + '-' + month + '-' + day;
+    };
+
+    const filteredOrders = orders.filter((order) => {
+        const customerFilter =
+            orderCustomerFilter
+                .trim()
+                .toLowerCase();
+
+        const customerName =
+            String(
+                order.customerName || '',
+            ).toLowerCase();
+
+        const customerMatches =
+            !customerFilter ||
+            customerName.includes(
+                customerFilter,
+            );
+
+        const dateMatches =
+            !orderDateFilter ||
+            formatDateInputValue(
+                order.createdAt,
+            ) === orderDateFilter;
+
+        return (
+            customerMatches &&
+            dateMatches
+        );
+    });
 
     /*
      * -----------------------------------------------------
@@ -618,8 +676,8 @@ export default function AdminSellerApplications({
     return (
         <div
             className={`modal ${isOpen
-                    ? 'show'
-                    : ''
+                ? 'show'
+                : ''
                 }`}
             onClick={(event) => {
                 if (
@@ -915,485 +973,567 @@ export default function AdminSellerApplications({
                                     </p>
                                 </div>
                             ) : (
-                                <div>
-                                    {orders.map(
-                                        (order) => {
-                                            const isUpdating =
-                                                updatingOrderId ===
-                                                order.id;
+                                <div className="admin-orders-panel">
 
-                                            const isFinal =
-                                                order.status ===
-                                                'COMPLETED' ||
-                                                order.status ===
-                                                'CANCELLED';
+                                    <div className="admin-orders-toolbar">
 
-                                            const nextStatuses =
-                                                getNextOrderStatuses(
-                                                    order.status,
-                                                );
+                                        <div className="admin-order-filter">
+                                            <label htmlFor="admin-order-customer-filter">
+                                                CUSTOMER
+                                            </label>
 
-                                            return (
-                                                <div
-                                                    key={
-                                                        order.id
-                                                    }
-                                                    className="checkout-product"
-                                                >
-                                                    <div
-                                                        style={{
-                                                            width:
-                                                                '100%',
-                                                        }}
-                                                    >
-                                                        <strong>
-                                                            ORDER{' '}
-                                                            {
+                                            <input
+                                                id="admin-order-customer-filter"
+                                                type="search"
+                                                value={orderCustomerFilter}
+                                                onChange={(event) =>
+                                                    setOrderCustomerFilter(
+                                                        event.target.value,
+                                                    )
+                                                }
+                                                placeholder="Search customer name..."
+                                            />
+                                        </div>
+
+                                        <div className="admin-order-filter">
+                                            <label htmlFor="admin-order-date-filter">
+                                                DATE
+                                            </label>
+
+                                            <input
+                                                id="admin-order-date-filter"
+                                                type="date"
+                                                value={orderDateFilter}
+                                                onChange={(event) =>
+                                                    setOrderDateFilter(
+                                                        event.target.value,
+                                                    )
+                                                }
+                                            />
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            className="admin-order-clear-filters"
+                                            disabled={
+                                                !orderCustomerFilter &&
+                                                !orderDateFilter
+                                            }
+                                            onClick={() => {
+                                                setOrderCustomerFilter('');
+                                                setOrderDateFilter('');
+                                            }}
+                                        >
+                                            CLEAR
+                                        </button>
+
+                                    </div>
+
+                                    <div className="admin-orders-summary">
+                                        Showing{' '}
+                                        <strong>
+                                            {filteredOrders.length}
+                                        </strong>{' '}
+                                        of{' '}
+                                        <strong>
+                                            {orders.length}
+                                        </strong>{' '}
+                                        orders
+                                    </div>
+
+                                    {filteredOrders.length === 0 ? (
+                                        <div className="admin-orders-empty">
+                                            <strong>
+                                                No matching orders.
+                                            </strong>
+
+                                            <span>
+                                                Try a different customer name or date.
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <div className="admin-orders-list">
+
+                                            {filteredOrders.map(
+                                                (order) => {
+                                                    const isUpdating =
+                                                        updatingOrderId ===
+                                                        order.id;
+
+                                                    const isFinal =
+                                                        order.status ===
+                                                        'COMPLETED' ||
+                                                        order.status ===
+                                                        'CANCELLED';
+
+                                                    const nextStatuses =
+                                                        getNextOrderStatuses(
+                                                            order.status,
+                                                        );
+
+                                                    return (
+                                                        <div
+                                                            key={
                                                                 order.id
                                                             }
-                                                        </strong>
-
-                                                        <br />
-
-                                                        <span>
-                                                            Customer:{' '}
-                                                            {
-                                                                order.customerName
-                                                            }
-                                                        </span>
-
-                                                        <br />
-
-                                                        <span>
-                                                            Phone:{' '}
-                                                            {
-                                                                order.customerPhone
-                                                            }
-                                                        </span>
-
-                                                        <br />
-
-                                                        <span>
-                                                            Delivery:{' '}
-                                                            {
-                                                                order.deliveryLocation
-                                                            }
-                                                        </span>
-
-                                                        <br />
-
-                                                        <span>
-                                                            Created:{' '}
-                                                            {formatDate(
-                                                                order.createdAt,
-                                                            )}
-                                                        </span>
-
-                                                        <br />
-                                                        <br />
-
-                                                        <strong>
-                                                            ITEMS
-                                                        </strong>
-
-                                                        <div
-                                                            style={{
-                                                                display:
-                                                                    'grid',
-                                                                gap:
-                                                                    '12px',
-                                                                marginTop:
-                                                                    '10px',
-                                                            }}
+                                                            className="checkout-product"
                                                         >
-                                                            {order.items.map(
-                                                                (
-                                                                    item,
-                                                                ) => {
-                                                                    const fulfillmentStatus =
-                                                                        item.fulfillmentStatus ||
-                                                                        'PENDING';
+                                                            <div
+                                                                style={{
+                                                                    width:
+                                                                        '100%',
+                                                                }}
+                                                            >
+                                                                <strong>
+                                                                    ORDER{' '}
+                                                                    {
+                                                                        order.id
+                                                                    }
+                                                                </strong>
 
-                                                                    const isDelivering =
-                                                                        deliveringItemId ===
-                                                                        item.id;
+                                                                <br />
 
-                                                                    const canDeliver =
-                                                                        order.status ===
-                                                                        'PROCESSING' &&
-                                                                        fulfillmentStatus ===
-                                                                        'READY';
+                                                                <span>
+                                                                    Customer:{' '}
+                                                                    {
+                                                                        order.customerName
+                                                                    }
+                                                                </span>
 
-                                                                    return (
-                                                                        <div
-                                                                            key={
-                                                                                item.id
-                                                                            }
-                                                                            style={{
-                                                                                padding:
-                                                                                    '12px',
-                                                                                border:
-                                                                                    '1px solid rgba(35, 28, 45, 0.10)',
-                                                                                borderRadius:
-                                                                                    '14px',
-                                                                            }}
-                                                                        >
-                                                                            <strong>
-                                                                                {
-                                                                                    item.productName
-                                                                                }{' '}
-                                                                                ×{' '}
-                                                                                {
-                                                                                    item.quantity
-                                                                                }
-                                                                            </strong>
+                                                                <br />
 
-                                                                            <br />
+                                                                <span>
+                                                                    Phone:{' '}
+                                                                    {
+                                                                        order.customerPhone
+                                                                    }
+                                                                </span>
 
-                                                                            <span>
-                                                                                Seller:{' '}
-                                                                                {
-                                                                                    item.sellerShopName
-                                                                                }
-                                                                            </span>
+                                                                <br />
 
-                                                                            <br />
+                                                                <span>
+                                                                    Delivery:{' '}
+                                                                    {
+                                                                        order.deliveryLocation
+                                                                    }
+                                                                </span>
 
-                                                                            <span>
-                                                                                {
-                                                                                    formatCurrency(
-                                                                                        item.unitPrice,
-                                                                                    )}{' '}
-                                                                                each
-                                                                            </span>
+                                                                <br />
 
-                                                                            <br />
+                                                                <span>
+                                                                    Created:{' '}
+                                                                    {formatDate(
+                                                                        order.createdAt,
+                                                                    )}
+                                                                </span>
 
-                                                                            <strong>
-                                                                                {formatCurrency(
-                                                                                    item.lineTotal,
-                                                                                )}
-                                                                            </strong>
+                                                                <br />
+                                                                <br />
 
-                                                                            <div
-                                                                                style={{
-                                                                                    marginTop:
-                                                                                        '10px',
-                                                                                    display:
-                                                                                        'flex',
-                                                                                    alignItems:
-                                                                                        'center',
-                                                                                    justifyContent:
-                                                                                        'space-between',
-                                                                                    gap:
-                                                                                        '10px',
-                                                                                    flexWrap:
-                                                                                        'wrap',
-                                                                                }}
-                                                                            >
-                                                                                <span>
-                                                                                    <strong>
-                                                                                        FULFILLMENT:{' '}
-                                                                                    </strong>
+                                                                <strong>
+                                                                    ITEMS
+                                                                </strong>
 
-                                                                                    {
-                                                                                        fulfillmentStatus
-                                                                                    }
-                                                                                </span>
+                                                                <div
+                                                                    style={{
+                                                                        display:
+                                                                            'grid',
+                                                                        gap:
+                                                                            '12px',
+                                                                        marginTop:
+                                                                            '10px',
+                                                                    }}
+                                                                >
+                                                                    {order.items.map(
+                                                                        (
+                                                                            item,
+                                                                        ) => {
+                                                                            const fulfillmentStatus =
+                                                                                item.fulfillmentStatus ||
+                                                                                'PENDING';
 
-                                                                                {item.sellerReadyAt && (
-                                                                                    <span>
-                                                                                        Ready:{' '}
-                                                                                        {formatDate(
-                                                                                            item.sellerReadyAt,
-                                                                                        )}
-                                                                                    </span>
-                                                                                )}
-                                                                            </div>
+                                                                            const isDelivering =
+                                                                                deliveringItemId ===
+                                                                                item.id;
 
-                                                                            {canDeliver && (
-                                                                                <button
-                                                                                    className="primary"
-                                                                                    type="button"
-                                                                                    disabled={
-                                                                                        Boolean(
-                                                                                            deliveringItemId,
-                                                                                        )
-                                                                                    }
-                                                                                    onClick={() =>
-                                                                                        handleMarkItemDelivered(
-                                                                                            order.id,
-                                                                                            item.id,
-                                                                                        )
+                                                                            const canDeliver =
+                                                                                order.status ===
+                                                                                'PROCESSING' &&
+                                                                                fulfillmentStatus ===
+                                                                                'READY';
+
+                                                                            return (
+                                                                                <div
+                                                                                    key={
+                                                                                        item.id
                                                                                     }
                                                                                     style={{
-                                                                                        marginTop:
-                                                                                            '10px',
+                                                                                        padding:
+                                                                                            '12px',
+                                                                                        border:
+                                                                                            '1px solid rgba(35, 28, 45, 0.10)',
+                                                                                        borderRadius:
+                                                                                            '14px',
                                                                                     }}
                                                                                 >
-                                                                                    {isDelivering
-                                                                                        ? 'DELIVERING...'
-                                                                                        : 'MARK DELIVERED →'}
-                                                                                </button>
-                                                                            )}
-                                                                        </div>
-                                                                    );
-                                                                },
-                                                            )}
-                                                        </div>
+                                                                                    <strong>
+                                                                                        {
+                                                                                            item.productName
+                                                                                        }{' '}
+                                                                                        ×{' '}
+                                                                                        {
+                                                                                            item.quantity
+                                                                                        }
+                                                                                    </strong>
 
-                                                        <br />
+                                                                                    <br />
 
-                                                        <strong>
-                                                            TOTAL:{' '}
-                                                            {formatCurrency(
-                                                                order.totalAmount,
-                                                            )}
-                                                        </strong>
+                                                                                    <span>
+                                                                                        Seller:{' '}
+                                                                                        {
+                                                                                            item.sellerShopName
+                                                                                        }
+                                                                                    </span>
 
-                                                        <br />
+                                                                                    <br />
 
-                                                        <span>
-                                                            Payment:{' '}
-                                                            {
-                                                                order.paymentMethod
-                                                            }
-                                                            {' / '}
-                                                            {
-                                                                order.paymentStatus
-                                                            }
-                                                        </span>
+                                                                                    <span>
+                                                                                        {
+                                                                                            formatCurrency(
+                                                                                                item.unitPrice,
+                                                                                            )}{' '}
+                                                                                        each
+                                                                                    </span>
 
-                                                        <br />
+                                                                                    <br />
 
-                                                        <strong>
-                                                            STATUS:{' '}
-                                                            {
-                                                                order.status
-                                                            }
-                                                        </strong>
+                                                                                    <strong>
+                                                                                        {formatCurrency(
+                                                                                            item.lineTotal,
+                                                                                        )}
+                                                                                    </strong>
 
-                                                        {/*
+                                                                                    <div
+                                                                                        style={{
+                                                                                            marginTop:
+                                                                                                '10px',
+                                                                                            display:
+                                                                                                'flex',
+                                                                                            alignItems:
+                                                                                                'center',
+                                                                                            justifyContent:
+                                                                                                'space-between',
+                                                                                            gap:
+                                                                                                '10px',
+                                                                                            flexWrap:
+                                                                                                'wrap',
+                                                                                        }}
+                                                                                    >
+                                                                                        <span>
+                                                                                            <strong>
+                                                                                                FULFILLMENT:{' '}
+                                                                                            </strong>
+
+                                                                                            {
+                                                                                                fulfillmentStatus
+                                                                                            }
+                                                                                        </span>
+
+                                                                                        {item.sellerReadyAt && (
+                                                                                            <span>
+                                                                                                Ready:{' '}
+                                                                                                {formatDate(
+                                                                                                    item.sellerReadyAt,
+                                                                                                )}
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </div>
+
+                                                                                    {canDeliver && (
+                                                                                        <button
+                                                                                            className="primary"
+                                                                                            type="button"
+                                                                                            disabled={
+                                                                                                Boolean(
+                                                                                                    deliveringItemId,
+                                                                                                )
+                                                                                            }
+                                                                                            onClick={() =>
+                                                                                                handleMarkItemDelivered(
+                                                                                                    order.id,
+                                                                                                    item.id,
+                                                                                                )
+                                                                                            }
+                                                                                            style={{
+                                                                                                marginTop:
+                                                                                                    '10px',
+                                                                                            }}
+                                                                                        >
+                                                                                            {isDelivering
+                                                                                                ? 'DELIVERING...'
+                                                                                                : 'MARK DELIVERED →'}
+                                                                                        </button>
+                                                                                    )}
+                                                                                </div>
+                                                                            );
+                                                                        },
+                                                                    )}
+                                                                </div>
+
+                                                                <br />
+
+                                                                <strong>
+                                                                    TOTAL:{' '}
+                                                                    {formatCurrency(
+                                                                        order.totalAmount,
+                                                                    )}
+                                                                </strong>
+
+                                                                <br />
+
+                                                                <span>
+                                                                    Payment:{' '}
+                                                                    {
+                                                                        order.paymentMethod
+                                                                    }
+                                                                    {' / '}
+                                                                    {
+                                                                        order.paymentStatus
+                                                                    }
+                                                                </span>
+
+                                                                <br />
+
+                                                                <strong>
+                                                                    STATUS:{' '}
+                                                                    {
+                                                                        order.status
+                                                                    }
+                                                                </strong>
+
+                                                                {/*
                                                      * Only show legitimate
                                                      * next order-level states.
                                                      *
                                                      * READY and COMPLETED
                                                      * are intentionally absent.
                                                      */}
-                                                        {!isFinal &&
-                                                            nextStatuses.length >
-                                                            0 && (
-                                                                <div
-                                                                    style={{
-                                                                        marginTop:
-                                                                            '12px',
-                                                                    }}
-                                                                >
-                                                                    <label
-                                                                        htmlFor={`order-status-${order.id}`}
-                                                                    >
-                                                                        Update
-                                                                        status
-                                                                    </label>
+                                                                {!isFinal &&
+                                                                    nextStatuses.length >
+                                                                    0 && (
+                                                                        <div
+                                                                            style={{
+                                                                                marginTop:
+                                                                                    '12px',
+                                                                            }}
+                                                                        >
+                                                                            <label
+                                                                                htmlFor={`order-status-${order.id}`}
+                                                                            >
+                                                                                Update
+                                                                                status
+                                                                            </label>
 
-                                                                    <select
-                                                                        id={`order-status-${order.id}`}
-                                                                        value=""
-                                                                        disabled={
-                                                                            isUpdating
-                                                                        }
-                                                                        onChange={(
-                                                                            event,
-                                                                        ) => {
-                                                                            const nextStatus =
-                                                                                event
-                                                                                    .target
-                                                                                    .value;
+                                                                            <select
+                                                                                id={`order-status-${order.id}`}
+                                                                                value=""
+                                                                                disabled={
+                                                                                    isUpdating
+                                                                                }
+                                                                                onChange={(
+                                                                                    event,
+                                                                                ) => {
+                                                                                    const nextStatus =
+                                                                                        event
+                                                                                            .target
+                                                                                            .value;
 
-                                                                            if (
-                                                                                nextStatus
-                                                                            ) {
-                                                                                handleOrderStatusChange(
-                                                                                    order.id,
-                                                                                    nextStatus,
-                                                                                );
-                                                                            }
-                                                                        }}
-                                                                    >
-                                                                        <option value="">
-                                                                            Select
-                                                                            next
-                                                                            status
-                                                                        </option>
-
-                                                                        {nextStatuses.map(
-                                                                            (
-                                                                                nextStatus,
-                                                                            ) => (
-                                                                                <option
-                                                                                    key={
+                                                                                    if (
                                                                                         nextStatus
+                                                                                    ) {
+                                                                                        handleOrderStatusChange(
+                                                                                            order.id,
+                                                                                            nextStatus,
+                                                                                        );
                                                                                     }
-                                                                                    value={
-                                                                                        nextStatus
-                                                                                    }
-                                                                                >
-                                                                                    {
-                                                                                        nextStatus
-                                                                                    }
+                                                                                }}
+                                                                            >
+                                                                                <option value="">
+                                                                                    Select
+                                                                                    next
+                                                                                    status
                                                                                 </option>
-                                                                            ),
-                                                                        )}
-                                                                    </select>
 
-                                                                    {isUpdating && (
-                                                                        <span>
-                                                                            {' '}
-                                                                            UPDATING...
-                                                                        </span>
+                                                                                {nextStatuses.map(
+                                                                                    (
+                                                                                        nextStatus,
+                                                                                    ) => (
+                                                                                        <option
+                                                                                            key={
+                                                                                                nextStatus
+                                                                                            }
+                                                                                            value={
+                                                                                                nextStatus
+                                                                                            }
+                                                                                        >
+                                                                                            {
+                                                                                                nextStatus
+                                                                                            }
+                                                                                        </option>
+                                                                                    ),
+                                                                                )}
+                                                                            </select>
+
+                                                                            {isUpdating && (
+                                                                                <span>
+                                                                                    {' '}
+                                                                                    UPDATING...
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
                                                                     )}
-                                                                </div>
-                                                            )}
-                                                    </div>
-                                                </div>
-                                            );
-                                        },
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                },
+                                            )}
+                                        </div>
                                     )}
                                 </div>
                             )}
                         </>
                     )}
-            </div>
 
-            {/*
+                {/*
              * =================================================
              * CANCELLATION CONFIRMATION
              * =================================================
              */}
 
-            {cancelOrder && (
-                <div
-                    className="modal show"
-                    style={{
-                        zIndex: 1200,
-                    }}
-                    onClick={(event) => {
-                        if (
-                            event.target.classList.contains(
-                                'modal',
-                            )
-                        ) {
-                            handleCancelCancellation();
-                        }
-                    }}
-                >
+                {cancelOrder && (
                     <div
-                        className="modal-card"
+                        className="modal show"
                         style={{
-                            maxWidth:
-                                '480px',
+                            zIndex: 1200,
+                        }}
+                        onClick={(event) => {
+                            if (
+                                event.target.classList.contains(
+                                    'modal',
+                                )
+                            ) {
+                                handleCancelCancellation();
+                            }
                         }}
                     >
-                        <button
-                            className="close"
-                            type="button"
-                            onClick={
-                                handleCancelCancellation
-                            }
-                            aria-label="Close cancellation confirmation"
+                        <div
+                            className="modal-card"
+                            style={{
+                                maxWidth:
+                                    '480px',
+                            }}
                         >
-                            ×
-                        </button>
-
-                        <h2>
-                            Cancel order?
-                        </h2>
-
-                        <p>
-                            You are about to
-                            cancel order{' '}
-                            <strong>
-                                {cancelOrder.id}
-                            </strong>
-                            .
-                        </p>
-
-                        <p>
-                            This will release
-                            the inventory
-                            reserved for this
-                            order.
-                        </p>
-
-                        <p>
-                            <strong>
-                                This action cannot
-                                be undone.
-                            </strong>
-                        </p>
-
-                        <div className="field">
-                            <label
-                                htmlFor="cancel-order-confirmation"
+                            <button
+                                className="close"
+                                type="button"
+                                onClick={
+                                    handleCancelCancellation
+                                }
+                                aria-label="Close cancellation confirmation"
                             >
-                                Type CANCEL to
-                                confirm
-                            </label>
+                                ×
+                            </button>
 
-                            <input
-                                id="cancel-order-confirmation"
-                                type="text"
-                                value={
-                                    cancelConfirmation
+                            <h2>
+                                Cancel order?
+                            </h2>
+
+                            <p>
+                                You are about to
+                                cancel order{' '}
+                                <strong>
+                                    {cancelOrder.id}
+                                </strong>
+                                .
+                            </p>
+
+                            <p>
+                                This will release
+                                the inventory
+                                reserved for this
+                                order.
+                            </p>
+
+                            <p>
+                                <strong>
+                                    This action cannot
+                                    be undone.
+                                </strong>
+                            </p>
+
+                            <div className="field">
+                                <label
+                                    htmlFor="cancel-order-confirmation"
+                                >
+                                    Type CANCEL to
+                                    confirm
+                                </label>
+
+                                <input
+                                    id="cancel-order-confirmation"
+                                    type="text"
+                                    value={
+                                        cancelConfirmation
+                                    }
+                                    onChange={(
+                                        event,
+                                    ) =>
+                                        setCancelConfirmation(
+                                            event
+                                                .target
+                                                .value,
+                                        )
+                                    }
+                                    autoComplete="off"
+                                    autoCapitalize="characters"
+                                    spellCheck="false"
+                                    placeholder="CANCEL"
+                                />
+                            </div>
+
+                            <button
+                                className="primary"
+                                type="button"
+                                disabled={
+                                    updatingOrderId ===
+                                    cancelOrder.id
                                 }
-                                onChange={(
-                                    event,
-                                ) =>
-                                    setCancelConfirmation(
-                                        event
-                                            .target
-                                            .value,
-                                    )
+                                onClick={
+                                    handleConfirmCancellation
                                 }
-                                autoComplete="off"
-                                autoCapitalize="characters"
-                                spellCheck="false"
-                                placeholder="CANCEL"
-                            />
+                            >
+                                {updatingOrderId ===
+                                    cancelOrder.id
+                                    ? 'CANCELLING...'
+                                    : 'CANCEL ORDER →'}
+                            </button>
+
+                            <button
+                                type="button"
+                                disabled={
+                                    updatingOrderId ===
+                                    cancelOrder.id
+                                }
+                                onClick={
+                                    handleCancelCancellation
+                                }
+                            >
+                                GO BACK
+                            </button>
                         </div>
-
-                        <button
-                            className="primary"
-                            type="button"
-                            disabled={
-                                updatingOrderId ===
-                                cancelOrder.id
-                            }
-                            onClick={
-                                handleConfirmCancellation
-                            }
-                        >
-                            {updatingOrderId ===
-                                cancelOrder.id
-                                ? 'CANCELLING...'
-                                : 'CANCEL ORDER →'}
-                        </button>
-
-                        <button
-                            type="button"
-                            disabled={
-                                updatingOrderId ===
-                                cancelOrder.id
-                            }
-                            onClick={
-                                handleCancelCancellation
-                            }
-                        >
-                            GO BACK
-                        </button>
                     </div>
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 }
