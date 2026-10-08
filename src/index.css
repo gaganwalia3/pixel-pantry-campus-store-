@@ -5118,3 +5118,130 @@ footer {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* =========================================================
+   FINAL MOBILE NAV + HERO SPACING FIX
+   ========================================================= */
+
+@media (max-width: 800px) {
+  .nav {
+    min-height: 76px;
+
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .nav-actions {
+    margin-left: auto;
+
+    flex-shrink: 0;
+
+    gap: 6px;
+  }
+
+  .menu-toggle {
+    display: inline-flex;
+
+    flex: 0 0 38px;
+
+    width: 38px;
+    min-width: 38px;
+    height: 38px;
+  }
+
+  .account-greeting {
+    max-width: 92px;
+
+    overflow: hidden;
+
+    text-overflow: ellipsis;
+
+    white-space: nowrap;
+
+    margin-left: 6px;
+  }
+
+  .hero {
+    padding-top: 58px;
+  }
+}
+
+
+@media (max-width: 430px) {
+  .nav {
+    min-height: 70px;
+
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .super-campus-logo {
+    font-size: 21px;
+
+    letter-spacing: -0.075em;
+
+    gap: 2px;
+  }
+
+  .nav-actions {
+    gap: 4px;
+  }
+
+  .account-greeting {
+    max-width: 72px;
+
+    margin-left: 5px;
+
+    padding-left: 2px !important;
+    padding-right: 2px !important;
+
+    font-size: 9px;
+  }
+
+  .nav-actions>button:not(.menu-toggle) {
+    min-height: 36px;
+
+    padding:
+      7px 8px;
+  }
+
+  .menu-toggle {
+    flex: 0 0 36px;
+
+    width: 36px;
+    min-width: 36px;
+    height: 36px;
+
+    padding: 0;
+  }
+
+  .hero {
+    padding-top: 56px;
+  }
+}
+
+
+@media (max-width: 360px) {
+  .super-campus-logo {
+    font-size: 19px;
+  }
+
+  .account-greeting {
+    max-width: 60px;
+
+    font-size: 8px;
+  }
+
+  .nav-actions>button:not(.menu-toggle) {
+    padding-left: 7px;
+    padding-right: 7px;
+  }
+
+  .menu-toggle {
+    flex-basis: 34px;
+
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+  }
+}
