@@ -48,45 +48,77 @@ export const getPublicCategories =
         return data.categories;
     };
 
+const PRODUCTS_PAGE_SIZE = 50;
+
 export const getPublicProducts =
     async ({
         category = '',
         brand = '',
         search = '',
     } = {}) => {
-        const params =
-            new URLSearchParams({
-                limit: '50',
-                offset: '0',
-            });
+        const allProducts = [];
+        let offset = 0;
 
-        if (category) {
-            params.set(
-                'category',
-                category,
+        while (true) {
+            const params =
+                new URLSearchParams({
+                    limit:
+                        String(
+                            PRODUCTS_PAGE_SIZE,
+                        ),
+                    offset:
+                        String(offset),
+                });
+
+            if (category) {
+                params.set(
+                    'category',
+                    category,
+                );
+            }
+
+            if (brand) {
+                params.set(
+                    'brand',
+                    brand,
+                );
+            }
+
+            if (search) {
+                params.set(
+                    'q',
+                    search,
+                );
+            }
+
+            const data =
+                await request(
+                    `/api/products?${params.toString()}`,
+                );
+
+            const page =
+                Array.isArray(
+                    data.products,
+                )
+                    ? data.products
+                    : [];
+
+            allProducts.push(
+                ...page,
             );
+
+            if (
+                page.length <
+                PRODUCTS_PAGE_SIZE
+            ) {
+                break;
+            }
+
+            offset +=
+                PRODUCTS_PAGE_SIZE;
         }
 
-        if (brand) {
-            params.set(
-                'brand',
-                brand,
-            );
-        }
-
-        if (search) {
-            params.set(
-                'q',
-                search,
-            );
-        }
-
-        const data =
-            await request(
-                `/api/products?${params.toString()}`,
-            );
-
-        return data.products.map(
+        return allProducts.map(
             (product) => ({
                 ...product,
 
