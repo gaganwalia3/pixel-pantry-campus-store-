@@ -1,5 +1,8 @@
 const express = require('express');
 const db = require('../db');
+const {
+    rankProducts,
+} = require('../utils/productSearch');
 
 const router = express.Router();
 
@@ -270,28 +273,7 @@ router.get('/', async (req, res) => {
             );
         }
 
-        if (search) {
-            conditions.push(`
-                (
-                    p.name LIKE ?
-                    OR p.description LIKE ?
-                    OR b.name LIKE ?
-                    OR c.name LIKE ?
-                    OR sp.shop_name LIKE ?
-                )
-            `);
 
-            const searchPattern =
-                `%${search}%`;
-
-            params.push(
-                searchPattern,
-                searchPattern,
-                searchPattern,
-                searchPattern,
-                searchPattern,
-            );
-        }
 
         const whereClause =
             conditions.join(' AND ');
@@ -366,13 +348,9 @@ router.get('/', async (req, res) => {
                 p.created_at DESC,
                 p.id DESC
 
-            LIMIT ?
-            OFFSET ?
             `,
             [
-                ...params,
-                parsedLimit,
-                parsedOffset,
+                params,
             ],
         );
 
@@ -471,11 +449,36 @@ router.get('/', async (req, res) => {
                         : null,
             }),
         );
+        const rankedProducts =
+            search
+                ? rankProducts(
+                    search,
+                    products.map(
+                        (product) => ({
+                            ...product,
+                            brand_name:
+                                product.brand.name,
+                            category_name:
+                                product.category.name,
+                            shop_name:
+                                product.seller.shopName,
+                        }),
+                    ),
+                )
+                : products;
+
+        const paginatedProducts =
+            rankedProducts.slice(
+                parsedOffset,
+                parsedOffset +
+                parsedLimit,
+            );
 
         return res.json({
             success: true,
 
-            products,
+            products:
+                paginatedProducts,
 
             pagination: {
                 limit:
@@ -485,7 +488,7 @@ router.get('/', async (req, res) => {
                     parsedOffset,
 
                 count:
-                    products.length,
+                    paginatedProducts.length,
             },
         });
     } catch (error) {
