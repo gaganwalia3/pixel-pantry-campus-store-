@@ -5597,3 +5597,15 @@ footer {
     padding-right: 7px;
   }
 }
+
+/* Hide mobile profile button on desktop */
+.nav-actions>.mobile-profile-button {
+  display: none;
+}
+
+/* Show profile button only on mobile */
+@media (max-width: 900px) {
+  .nav-actions>.mobile-profile-button {
+    display: inline-flex;
+  }
+}
