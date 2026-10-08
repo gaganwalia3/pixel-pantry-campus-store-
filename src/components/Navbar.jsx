@@ -75,14 +75,14 @@ export default function Navbar({
         href="#home"
         className="brand"
         onClick={closeMenu}
-        aria-label="SUPER Daily home"
+        aria-label="SUPER Campus home"
       >
-        <span className="super-daily-logo">
+        <span className="super-campus-logo">
           <span className="logo-super">
             SUPER
           </span>
-          <span className="logo-daily">
-            Daily
+          <span className="logo-campus">
+            Campus
           </span>
         </span>
       </a>
@@ -180,8 +180,8 @@ export default function Navbar({
           className="bag-button"
           onClick={handleCheckout}
           aria-label={`Open bag${cartCount > 0
-              ? ` with ${cartCount} items`
-              : ''
+            ? ` with ${cartCount} items`
+            : ''
             }`}
         >
           <span className="bag-icon">
