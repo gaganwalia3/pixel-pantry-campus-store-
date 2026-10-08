@@ -4012,7 +4012,7 @@ body::after {
     rgba(255, 253, 248, 0.94);
 }
 
-.super-daily-logo {
+.super-campus-logo {
   display: inline-flex;
 
   align-items: baseline;
@@ -4036,11 +4036,13 @@ body::after {
 .logo-super {
   color: var(--orange);
 
+  font-weight: 900;
+
   text-shadow:
     1px 1px 0 #171717;
 }
 
-.logo-daily {
+.logo-campus {
   color: var(--green);
 
   text-shadow:
@@ -4405,7 +4407,7 @@ footer {
 }
 
 @media (max-width: 600px) {
-  .super-daily-logo {
+  .super-campus-logo {
     font-size: 24px;
   }
 
