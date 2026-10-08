@@ -5598,14 +5598,19 @@ footer {
   }
 }
 
-/* Hide mobile profile button on desktop */
-.nav-actions>.mobile-profile-button {
-  display: none;
+/* =========================================================
+   FIX PROFILE BUTTON VISIBILITY
+   ========================================================= */
+
+/* Desktop: completely remove mobile profile button */
+.nav-actions>button.mobile-profile-button {
+  display: none !important;
 }
 
-/* Show profile button only on mobile */
+
+/* Mobile: show profile button */
 @media (max-width: 900px) {
-  .nav-actions>.mobile-profile-button {
-    display: inline-flex;
+  .nav-actions>button.mobile-profile-button {
+    display: inline-flex !important;
   }
 }
