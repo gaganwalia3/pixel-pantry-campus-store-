@@ -1076,7 +1076,7 @@ export default function AdminSellerApplications({
                                                             key={
                                                                 order.id
                                                             }
-                                                            className="checkout-product"
+                                                            className="admin-order-card"
                                                         >
                                                             <div
                                                                 style={{
@@ -1164,17 +1164,8 @@ export default function AdminSellerApplications({
 
                                                                             return (
                                                                                 <div
-                                                                                    key={
-                                                                                        item.id
-                                                                                    }
-                                                                                    style={{
-                                                                                        padding:
-                                                                                            '12px',
-                                                                                        border:
-                                                                                            '1px solid rgba(35, 28, 45, 0.10)',
-                                                                                        borderRadius:
-                                                                                            '14px',
-                                                                                    }}
+                                                                                    key={item.id}
+                                                                                    className="admin-order-item"
                                                                                 >
                                                                                     <strong>
                                                                                         {
@@ -1403,137 +1394,137 @@ export default function AdminSellerApplications({
                             )}
                         </>
                     )}
+            </div>
 
-                {/*
+            {/*
              * =================================================
              * CANCELLATION CONFIRMATION
              * =================================================
              */}
 
-                {cancelOrder && (
+            {cancelOrder && (
+                <div
+                    className="modal show"
+                    style={{
+                        zIndex: 1200,
+                    }}
+                    onClick={(event) => {
+                        if (
+                            event.target.classList.contains(
+                                'modal',
+                            )
+                        ) {
+                            handleCancelCancellation();
+                        }
+                    }}
+                >
                     <div
-                        className="modal show"
+                        className="modal-card"
                         style={{
-                            zIndex: 1200,
-                        }}
-                        onClick={(event) => {
-                            if (
-                                event.target.classList.contains(
-                                    'modal',
-                                )
-                            ) {
-                                handleCancelCancellation();
-                            }
+                            maxWidth:
+                                '480px',
                         }}
                     >
-                        <div
-                            className="modal-card"
-                            style={{
-                                maxWidth:
-                                    '480px',
-                            }}
+                        <button
+                            className="close"
+                            type="button"
+                            onClick={
+                                handleCancelCancellation
+                            }
+                            aria-label="Close cancellation confirmation"
                         >
-                            <button
-                                className="close"
-                                type="button"
-                                onClick={
-                                    handleCancelCancellation
-                                }
-                                aria-label="Close cancellation confirmation"
+                            ×
+                        </button>
+
+                        <h2>
+                            Cancel order?
+                        </h2>
+
+                        <p>
+                            You are about to
+                            cancel order{' '}
+                            <strong>
+                                {cancelOrder.id}
+                            </strong>
+                            .
+                        </p>
+
+                        <p>
+                            This will release
+                            the inventory
+                            reserved for this
+                            order.
+                        </p>
+
+                        <p>
+                            <strong>
+                                This action cannot
+                                be undone.
+                            </strong>
+                        </p>
+
+                        <div className="field">
+                            <label
+                                htmlFor="cancel-order-confirmation"
                             >
-                                ×
-                            </button>
+                                Type CANCEL to
+                                confirm
+                            </label>
 
-                            <h2>
-                                Cancel order?
-                            </h2>
-
-                            <p>
-                                You are about to
-                                cancel order{' '}
-                                <strong>
-                                    {cancelOrder.id}
-                                </strong>
-                                .
-                            </p>
-
-                            <p>
-                                This will release
-                                the inventory
-                                reserved for this
-                                order.
-                            </p>
-
-                            <p>
-                                <strong>
-                                    This action cannot
-                                    be undone.
-                                </strong>
-                            </p>
-
-                            <div className="field">
-                                <label
-                                    htmlFor="cancel-order-confirmation"
-                                >
-                                    Type CANCEL to
-                                    confirm
-                                </label>
-
-                                <input
-                                    id="cancel-order-confirmation"
-                                    type="text"
-                                    value={
-                                        cancelConfirmation
-                                    }
-                                    onChange={(
-                                        event,
-                                    ) =>
-                                        setCancelConfirmation(
-                                            event
-                                                .target
-                                                .value,
-                                        )
-                                    }
-                                    autoComplete="off"
-                                    autoCapitalize="characters"
-                                    spellCheck="false"
-                                    placeholder="CANCEL"
-                                />
-                            </div>
-
-                            <button
-                                className="primary"
-                                type="button"
-                                disabled={
-                                    updatingOrderId ===
-                                    cancelOrder.id
+                            <input
+                                id="cancel-order-confirmation"
+                                type="text"
+                                value={
+                                    cancelConfirmation
                                 }
-                                onClick={
-                                    handleConfirmCancellation
+                                onChange={(
+                                    event,
+                                ) =>
+                                    setCancelConfirmation(
+                                        event
+                                            .target
+                                            .value,
+                                    )
                                 }
-                            >
-                                {updatingOrderId ===
-                                    cancelOrder.id
-                                    ? 'CANCELLING...'
-                                    : 'CANCEL ORDER →'}
-                            </button>
-
-                            <button
-                                type="button"
-                                disabled={
-                                    updatingOrderId ===
-                                    cancelOrder.id
-                                }
-                                onClick={
-                                    handleCancelCancellation
-                                }
-                            >
-                                GO BACK
-                            </button>
+                                autoComplete="off"
+                                autoCapitalize="characters"
+                                spellCheck="false"
+                                placeholder="CANCEL"
+                            />
                         </div>
+
+                        <button
+                            className="primary"
+                            type="button"
+                            disabled={
+                                updatingOrderId ===
+                                cancelOrder.id
+                            }
+                            onClick={
+                                handleConfirmCancellation
+                            }
+                        >
+                            {updatingOrderId ===
+                                cancelOrder.id
+                                ? 'CANCELLING...'
+                                : 'CANCEL ORDER →'}
+                        </button>
+
+                        <button
+                            type="button"
+                            disabled={
+                                updatingOrderId ===
+                                cancelOrder.id
+                            }
+                            onClick={
+                                handleCancelCancellation
+                            }
+                        >
+                            GO BACK
+                        </button>
                     </div>
-                )}
-            </div>
+                </div>
+            )}
         </div>
     );
 }

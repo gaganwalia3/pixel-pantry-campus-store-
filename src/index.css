@@ -5686,3 +5686,239 @@ footer {
     gap: 11px;
   }
 }
+
+/* =========================================================
+   ADMIN ORDER CARDS
+   ========================================================= */
+
+.admin-orders-list {
+  display: grid;
+
+  gap: 18px;
+
+  margin-top: 18px;
+}
+
+.admin-order-card {
+  display: block;
+
+  width: 100%;
+
+  margin: 0;
+
+  padding: 22px;
+
+  border: 1px solid var(--line);
+
+  border-radius: 18px;
+
+  background: #fff;
+
+  box-shadow:
+    0 8px 24px rgba(42, 51, 36, 0.07);
+
+  font-size: 13px;
+
+  box-sizing: border-box;
+}
+
+.admin-order-card:hover {
+  box-shadow:
+    0 12px 30px rgba(42, 51, 36, 0.10);
+}
+
+
+/* =========================================================
+   ADMIN ORDER FILTER AREA
+   ========================================================= */
+
+.admin-orders-toolbar {
+  display: grid;
+
+  grid-template-columns:
+    minmax(220px, 1fr) minmax(180px, 220px) auto;
+
+  align-items: end;
+
+  gap: 14px;
+
+  margin-bottom: 14px;
+}
+
+.admin-order-filter {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 7px;
+}
+
+.admin-order-filter label {
+  font:
+    700 10px "DM Mono",
+    monospace;
+
+  letter-spacing: 0.08em;
+}
+
+.admin-order-filter input {
+  width: 100%;
+
+  min-height: 42px;
+
+  padding: 10px 12px;
+
+  border: 1px solid var(--line);
+
+  border-radius: 10px;
+
+  background: #fff;
+
+  color: var(--ink);
+
+  box-sizing: border-box;
+}
+
+.admin-order-clear-filters {
+  min-height: 42px;
+
+  padding: 10px 16px;
+
+  border: 1px solid var(--line);
+
+  border-radius: 10px;
+
+  background: transparent;
+
+  color: var(--ink);
+
+  font:
+    700 10px "DM Mono",
+    monospace;
+
+  cursor: pointer;
+}
+
+.admin-order-clear-filters:hover:not(:disabled) {
+  background: #fff0df;
+}
+
+.admin-order-clear-filters:disabled {
+  opacity: 0.45;
+
+  cursor: not-allowed;
+}
+
+
+/* =========================================================
+   ORDER SUMMARY
+   ========================================================= */
+
+.admin-orders-summary {
+  margin-bottom: 12px;
+
+  color: var(--muted);
+
+  font-size: 12px;
+}
+
+.admin-orders-summary strong {
+  color: var(--ink);
+}
+
+
+/* =========================================================
+   NO ORDERS AFTER FILTERING
+   ========================================================= */
+
+.admin-orders-empty {
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 6px;
+
+  min-height: 150px;
+
+  padding: 30px;
+
+  border: 1px dashed var(--line);
+
+  border-radius: 16px;
+
+  text-align: center;
+
+  color: var(--muted);
+}
+
+.admin-orders-empty strong {
+  color: var(--ink);
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 700px) {
+
+  .admin-orders-toolbar {
+    grid-template-columns: 1fr;
+
+    gap: 10px;
+  }
+
+  .admin-order-clear-filters {
+    width: 100%;
+  }
+
+  .admin-order-card {
+    padding: 16px;
+
+    border-radius: 15px;
+  }
+
+  .admin-orders-list {
+    gap: 14px;
+  }
+}
+
+/* =========================================================
+   ADMIN ORDER ITEMS
+   ========================================================= */
+
+.admin-order-item {
+  padding: 14px 16px;
+
+  border: 1px solid var(--line);
+
+  border-radius: 13px;
+
+  background: #fafaf7;
+
+  box-sizing: border-box;
+}
+
+.admin-order-item+.admin-order-item {
+  margin-top: 10px;
+}
+
+.admin-order-item strong {
+  color: var(--ink);
+}
+
+.admin-order-item span {
+  color: var(--muted);
+}
+
+
+/* Mobile */
+@media (max-width: 700px) {
+  .admin-order-item {
+    padding: 12px;
+  }
+}
