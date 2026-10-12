@@ -7,6 +7,7 @@ export default function CatalogSection({
   activeCategory,
   onSelectCategory,
   onAddToCart,
+  onOpenProductDetails,
   onOpenRequest,
 }) {
   const countText =
@@ -42,8 +43,8 @@ export default function CatalogSection({
         <button
           type="button"
           className={`filter ${activeCategory === ''
-              ? 'active'
-              : ''
+            ? 'active'
+            : ''
             }`}
           onClick={() =>
             onSelectCategory('')
@@ -58,9 +59,9 @@ export default function CatalogSection({
               key={category.id}
               type="button"
               className={`filter ${activeCategory ===
-                  category.slug
-                  ? 'active'
-                  : ''
+                category.slug
+                ? 'active'
+                : ''
                 }`}
               onClick={() =>
                 onSelectCategory(
@@ -86,6 +87,7 @@ export default function CatalogSection({
               onAddToCart={
                 onAddToCart
               }
+              onOpenProductDetails={onOpenProductDetails}
             />
           ),
         )}

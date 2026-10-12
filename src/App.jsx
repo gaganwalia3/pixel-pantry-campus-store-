@@ -36,7 +36,7 @@ import SellerApplicationModal from './features/seller/application/SellerApplicat
 import AdminSellerApplications from './features/admin/AdminSellerApplications';
 import SellerDashboard from './features/seller/dashboard/SellerDashboard';
 import MyOrders from './features/orders/MyOrders';
-
+import ProductDetailsModal from './components/modals/ProductDetailsModal';
 const API_URL =
   import.meta.env.DEV
     ? 'http://localhost:5000'
@@ -102,6 +102,11 @@ export default function App() {
     marketplaceProducts,
     setMarketplaceProducts,
   ] = useState([]);
+
+  const [
+    selectedProduct,
+    setSelectedProduct,
+  ] = useState(null);
 
   const [
     productsLoading,
@@ -454,6 +459,7 @@ export default function App() {
       }
     };
 
+
   /*
    * ============================================================
    * CART
@@ -478,6 +484,26 @@ export default function App() {
       `${product.name} added to your bag`,
     );
   };
+
+  /*
+   * ============================================================
+   * PRODUCT DETAILS
+   * ============================================================
+   */
+  const handleOpenProductDetails = (
+    product,
+  ) => {
+    if (!product || !product.id) {
+      showToast(
+        'Unable to open this product.',
+      );
+
+      return;
+    }
+
+    setSelectedProduct(product);
+  };
+
 
   /*
    * ============================================================
@@ -989,6 +1015,9 @@ export default function App() {
             onAddToCart={
               handleAddToCart
             }
+            onOpenProductDetails={
+              handleOpenProductDetails
+            }
             onOpenRequest={() =>
               setRequestOpen(
                 true,
@@ -1001,7 +1030,11 @@ export default function App() {
 
         <Footer />
       </main>
-
+      <ProductDetailsModal
+        product={selectedProduct}
+        onClose={() => setSelectedProduct(null)}
+        onAddToCart={handleAddToCart}
+      />
       <AuthModal
         isOpen={authOpen}
         onClose={() =>
