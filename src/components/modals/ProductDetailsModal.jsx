@@ -106,8 +106,7 @@ export default function ProductDetailsModal({
                             />
                         ) : (
                             <div
-                                className={`product - icon ${product.iconClass || ''
-                                    } `}
+                                className={`product-icon ${product.iconClass || ''}`}
                                 style={product.iconStyle || {}}
                                 aria-hidden="true"
                             />
