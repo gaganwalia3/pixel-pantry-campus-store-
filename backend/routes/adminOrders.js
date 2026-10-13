@@ -941,13 +941,16 @@ router.patch(
              */
             await connection.execute(
                 `
-                UPDATE order_items
-                SET
-                    fulfillment_status = 'DELIVERED'
-                WHERE
-                    id = ?
-                    AND order_id = ?
-                    AND fulfillment_status = 'READY'
+                
+UPDATE order_items
+SET
+    fulfillment_status = 'DELIVERED',
+    delivered_at = CURRENT_TIMESTAMP(6)
+WHERE
+    id = ?
+    AND order_id = ?
+    AND fulfillment_status = 'READY'
+
                 `,
                 [
                     item.id,
