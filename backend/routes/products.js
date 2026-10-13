@@ -288,6 +288,11 @@ router.get('/', async (req, res) => {
                 p.slug,
                 p.description,
                 p.price,
+                COALESCE(review_summary.average_rating, 0)
+    AS average_rating,
+
+COALESCE(review_summary.review_count, 0)
+    AS review_count,
                 p.status,
 
                 HEX(c.id) AS category_id,
@@ -342,6 +347,16 @@ router.get('/', async (req, res) => {
                 ON pim.product_id = p.id
                 AND pim.is_primary = 1
 
+                LEFT JOIN (
+    SELECT
+        product_id,
+        AVG(rating) AS average_rating,
+        COUNT(*) AS review_count
+    FROM product_reviews
+    GROUP BY product_id
+) review_summary
+    ON review_summary.product_id = p.id
+
             WHERE ${whereClause}
 
             ORDER BY
@@ -349,9 +364,9 @@ router.get('/', async (req, res) => {
                 p.id DESC
 
             `,
-            [
-                params,
-            ],
+
+            params,
+
         );
 
         const products = rows.map(
@@ -376,7 +391,11 @@ router.get('/', async (req, res) => {
 
                 status:
                     product.status,
+                averageRating:
+                    Number(product.average_rating),
 
+                reviewCount:
+                    Number(product.review_count),
                 category: {
                     id:
                         product.category_id.toLowerCase(),

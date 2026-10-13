@@ -1,7 +1,11 @@
+
 import React, {
+    useCallback,
     useEffect,
     useState,
 } from 'react';
+
+import { getCsrfToken } from '../auth/authStore';
 
 const API_URL =
     import.meta.env.DEV
@@ -28,31 +32,23 @@ const STATUS_STEPS = [
 function formatPrice(value) {
     return (
         '₹' +
-        Number(value).toLocaleString(
-            'en-IN',
-            {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-            },
-        )
+        Number(value).toLocaleString('en-IN', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        })
     );
 }
 
 function formatDate(value) {
-    if (!value) {
-        return '';
-    }
+    if (!value) return '';
 
-    return new Date(value).toLocaleString(
-        'en-IN',
-        {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-        },
-    );
+    return new Date(value).toLocaleString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+    });
 }
 
 function getStatusIndex(status) {
@@ -68,58 +64,179 @@ function StatusTracker({ status }) {
                 </span>
 
                 <div>
-                    <strong>
-                        Order cancelled
-                    </strong>
-
-                    <p>
-                        This order will not be
-                        delivered.
-                    </p>
+                    <strong>Order cancelled</strong>
+                    <p>This order will not be delivered.</p>
                 </div>
             </div>
         );
     }
 
-    const currentIndex =
-        getStatusIndex(status);
+    const currentIndex = getStatusIndex(status);
 
     return (
         <div className="my-orders-tracker">
-            {STATUS_STEPS.map(
-                (step, index) => {
-                    const isComplete =
-                        index <= currentIndex;
+            {STATUS_STEPS.map((step, index) => {
+                const isComplete = index <= currentIndex;
 
-                    return (
-                        <div
-                            key={step}
-                            className={`my-orders-step ${isComplete
-                                ? 'complete'
-                                : ''
-                                } ${index === currentIndex
-                                    ? 'current'
-                                    : ''
-                                }`}
-                        >
-                            <span className="my-orders-step-dot">
-                                {isComplete
-                                    ? '✓'
-                                    : index + 1}
-                            </span>
+                return (
+                    <div
+                        key={step}
+                        className={`my-orders-step ${isComplete ? 'complete' : ''
+                            } ${index === currentIndex ? 'current' : ''
+                            }`}
+                    >
+                        <span className="my-orders-step-dot">
+                            {isComplete ? '✓' : index + 1}
+                        </span>
 
-                            <small>
-                                {
-                                    STATUS_LABELS[
-                                    step
-                                    ]
-                                }
-                            </small>
-                        </div>
-                    );
-                },
-            )}
+                        <small>{STATUS_LABELS[step]}</small>
+                    </div>
+                );
+            })}
         </div>
+    );
+}
+
+function ReviewForm({
+    item,
+    eligibility,
+    onSubmit,
+}) {
+    const [rating, setRating] = useState(5);
+    const [reviewText, setReviewText] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+
+    if (!eligibility) return null;
+
+    if (eligibility.alreadyReviewed) {
+        return (
+            <div className="order-review-status">
+                <span>✓</span> You've reviewed this product.
+            </div>
+        );
+    }
+
+    if (!eligibility.withinWindow) {
+        return (
+            <div className="order-review-status muted">
+                The 7-day review period has ended.
+            </div>
+        );
+    }
+
+    if (!eligibility.canReview) return null;
+
+    const handleSubmit = async (event) => {
+        event.preventDefault();
+
+        if (isSubmitting) return;
+
+        setIsSubmitting(true);
+        setError('');
+        setSuccess('');
+
+        try {
+            await onSubmit({
+                orderItemId: eligibility.orderItemId,
+                rating,
+                reviewText: reviewText.trim(),
+            });
+
+            setSuccess('Your review was submitted successfully.');
+            setReviewText('');
+        } catch (submitError) {
+            setError(
+                submitError.message ||
+                'Unable to submit your review.',
+            );
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <form
+            className="order-review-form"
+            onSubmit={handleSubmit}
+        >
+            <h4>Review this delivered item</h4>
+
+            <div className="order-review-rating">
+                <span>Rating</span>
+
+                <div
+                    className="order-review-stars"
+                    role="group"
+                    aria-label="Choose a rating from 1 to 5"
+                >
+                    {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                            key={star}
+                            type="button"
+                            className={
+                                star <= rating ? 'selected' : ''
+                            }
+                            onClick={() => setRating(star)}
+                            aria-label={`${star} star${star === 1 ? '' : 's'
+                                }`}
+                            aria-pressed={rating === star}
+                        >
+                            ★
+                        </button>
+                    ))}
+                </div>
+
+                <span className="order-review-rating-value">
+                    {rating}/5
+                </span>
+            </div>
+
+            <label
+                className="order-review-label"
+                htmlFor={`review-text-${eligibility.orderItemId}`}
+            >
+                Your review (optional)
+            </label>
+
+            <textarea
+                id={`review-text-${eligibility.orderItemId}`}
+                value={reviewText}
+                onChange={(event) =>
+                    setReviewText(event.target.value)
+                }
+                maxLength={2000}
+                rows={3}
+                placeholder="How was this product?"
+                disabled={isSubmitting}
+            />
+
+            <div className="order-review-footer">
+                <small>{reviewText.length}/2000 characters</small>
+
+                <button
+                    type="submit"
+                    disabled={isSubmitting}
+                >
+                    {isSubmitting
+                        ? 'Submitting...'
+                        : 'Submit review'}
+                </button>
+            </div>
+
+            {error && (
+                <p className="order-review-error" role="alert">
+                    {error}
+                </p>
+            )}
+
+            {success && (
+                <p className="order-review-success" role="status">
+                    {success}
+                </p>
+            )}
+        </form>
     );
 }
 
@@ -129,44 +246,67 @@ export default function MyOrders({
     session,
     onOpenProduct,
 }) {
-    const [orders, setOrders] =
-        useState([]);
+    const [orders, setOrders] = useState([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
 
-    const [isLoading, setIsLoading] =
-        useState(false);
+    const [reviewEligibility, setReviewEligibility] =
+        useState({});
 
-    const [error, setError] =
+    const [eligibilityError, setEligibilityError] =
         useState('');
 
-    useEffect(() => {
-        if (!isOpen) {
-            return;
+    const refreshReviewEligibility = useCallback(async () => {
+        const response = await fetch(
+            `${API_URL}/api/products/reviews/eligibility`,
+            {
+                method: 'GET',
+                credentials: 'include',
+            },
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(
+                data.message ||
+                'Unable to check review eligibility.',
+            );
         }
 
-        if (!session?.isAuthenticated) {
-            return;
+        const nextEligibility = {};
+
+        for (const item of data.items || []) {
+            nextEligibility[item.orderItemId] = item;
+        }
+
+        setReviewEligibility(nextEligibility);
+        setEligibilityError('');
+    }, []);
+
+    useEffect(() => {
+        if (!isOpen || !session?.isAuthenticated) {
+            return undefined;
         }
 
         let cancelled = false;
 
         const loadOrders = async () => {
+            setIsLoading(true);
+            setError('');
+
             try {
-                setIsLoading(true);
-                setError('');
+                const response = await fetch(
+                    `${API_URL}/api/orders/my-orders`,
+                    {
+                        method: 'GET',
+                        credentials: 'include',
+                    },
+                );
 
-                const response =
-                    await fetch(
-                        `${API_URL}/api/orders/my-orders`,
-                        {
-                            method: 'GET',
-                            credentials: 'include',
-                        },
-                    );
+                const data = await response.json();
 
-                const data =
-                    await response.json();
-
-                if (!response.ok) {
+                if (!response.ok || !data.success) {
                     throw new Error(
                         data.message ||
                         'Unable to load your orders.',
@@ -175,19 +315,12 @@ export default function MyOrders({
 
                 if (!cancelled) {
                     setOrders(
-                        Array.isArray(
-                            data.orders,
-                        )
+                        Array.isArray(data.orders)
                             ? data.orders
                             : [],
                     );
                 }
             } catch (requestError) {
-                console.error(
-                    'My orders failed to load:',
-                    requestError,
-                );
-
                 if (!cancelled) {
                     setError(
                         requestError.message ||
@@ -201,7 +334,21 @@ export default function MyOrders({
             }
         };
 
+        const loadEligibility = async () => {
+            try {
+                await refreshReviewEligibility();
+            } catch (requestError) {
+                if (!cancelled) {
+                    setEligibilityError(
+                        requestError.message ||
+                        'Unable to load review eligibility.',
+                    );
+                }
+            }
+        };
+
         loadOrders();
+        loadEligibility();
 
         return () => {
             cancelled = true;
@@ -209,25 +356,54 @@ export default function MyOrders({
     }, [
         isOpen,
         session?.isAuthenticated,
+        refreshReviewEligibility,
     ]);
 
-    if (!isOpen) {
-        return null;
-    }
+    if (!isOpen) return null;
 
-    const handleProductClick = (
-        productId,
-    ) => {
+    const handleProductClick = (productId) => {
         onClose();
 
-        /*
-         * Close the modal first.
-         * Then let App handle finding and
-         * scrolling to the marketplace card.
-         */
         window.setTimeout(() => {
-            onOpenProduct(productId);
+            onOpenProduct?.(productId);
         }, 120);
+    };
+
+    const submitReview = async ({
+        orderItemId,
+        rating,
+        reviewText,
+    }) => {
+        // Obtain a fresh token for this state-changing request.
+        const csrfToken = await getCsrfToken();
+
+        const response = await fetch(
+            `${API_URL}/api/products/reviews`,
+            {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                },
+                body: JSON.stringify({
+                    orderItemId,
+                    rating,
+                    reviewText,
+                }),
+            },
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(
+                data.message || 'Unable to submit your review.',
+            );
+        }
+
+        // Refresh the server-authoritative eligibility state.
+        await refreshReviewEligibility();
     };
 
     return (
@@ -236,9 +412,7 @@ export default function MyOrders({
                 }`}
             onClick={(event) => {
                 if (
-                    event.target.classList.contains(
-                        'modal',
-                    )
+                    event.target.classList.contains('modal')
                 ) {
                     onClose();
                 }
@@ -255,16 +429,13 @@ export default function MyOrders({
                 </button>
 
                 <div className="my-orders-header">
-                    <div className="eyebrow">
-                        YOUR ORDERS
-                    </div>
+                    <div className="eyebrow">YOUR ORDERS</div>
 
                     <h2>My orders.</h2>
 
                     <p>
-                        Everything you've ordered
-                        from the marketplace, in one
-                        place.
+                        Everything you've ordered from the
+                        marketplace, in one place.
                     </p>
                 </div>
 
@@ -278,8 +449,7 @@ export default function MyOrders({
                     </div>
                 ) : orders.length === 0 ? (
                     <div className="empty my-orders-empty">
-                        You haven't placed an
-                        order yet.
+                        You haven't placed an order yet.
                     </div>
                 ) : (
                     <div className="my-orders-list">
@@ -294,14 +464,10 @@ export default function MyOrders({
                                             ORDER
                                         </span>
 
-                                        <h3>
-                                            #{order.id}
-                                        </h3>
+                                        <h3>#{order.id}</h3>
 
                                         <time>
-                                            {formatDate(
-                                                order.createdAt,
-                                            )}
+                                            {formatDate(order.createdAt)}
                                         </time>
                                     </div>
 
@@ -309,53 +475,47 @@ export default function MyOrders({
                                         <span>TOTAL</span>
 
                                         <strong>
-                                            {formatPrice(
-                                                order.totalAmount,
-                                            )}
+                                            {formatPrice(order.totalAmount)}
                                         </strong>
                                     </div>
                                 </div>
 
                                 <div className="my-order-status-row">
                                     <strong>
-                                        {STATUS_LABELS[
-                                            order.status
-                                        ] ||
+                                        {STATUS_LABELS[order.status] ||
                                             order.status}
                                     </strong>
 
                                     <span
                                         className={`my-order-status-pill ${String(
                                             order.status || '',
-                                        ).toLowerCase()}`}
+                                        ).toLowerCase()
+                                            }`}
                                     >
                                         {order.status}
                                     </span>
                                 </div>
 
-                                <StatusTracker
-                                    status={order.status}
-                                />
+                                <StatusTracker status={order.status} />
 
                                 <div className="my-order-products">
                                     <div className="my-order-products-heading">
-                                        <span>
-                                            ITEMS
-                                        </span>
+                                        <span>ITEMS</span>
 
                                         <span>
                                             {order.items.length}{' '}
-                                            {order.items.length ===
-                                                1
+                                            {order.items.length === 1
                                                 ? 'item'
                                                 : 'items'}
                                         </span>
                                     </div>
 
-                                    {order.items.map(
-                                        (item) => (
+                                    {order.items.map((item) => (
+                                        <div
+                                            key={item.id}
+                                            className="my-order-review-item"
+                                        >
                                             <button
-                                                key={item.id}
                                                 type="button"
                                                 className="my-order-product"
                                                 onClick={() =>
@@ -365,16 +525,12 @@ export default function MyOrders({
                                                 }
                                             >
                                                 <span className="my-order-product-art">
-                                                    <span>
-                                                        ↗
-                                                    </span>
+                                                    <span>↗</span>
                                                 </span>
 
                                                 <span className="my-order-product-info">
                                                     <strong>
-                                                        {
-                                                            item.productName
-                                                        }
+                                                        {item.productName}
                                                     </strong>
 
                                                     <small>
@@ -384,10 +540,7 @@ export default function MyOrders({
                                                 </span>
 
                                                 <span className="my-order-product-quantity">
-                                                    ×
-                                                    {
-                                                        item.quantity
-                                                    }
+                                                    ×{item.quantity}
                                                 </span>
 
                                                 <span className="my-order-product-price">
@@ -396,36 +549,41 @@ export default function MyOrders({
                                                     )}
                                                 </span>
                                             </button>
-                                        ),
-                                    )}
+
+                                            {eligibilityError ? (
+                                                <p className="order-review-note">
+                                                    {eligibilityError}
+                                                </p>
+                                            ) : (
+                                                <ReviewForm
+                                                    item={item}
+                                                    eligibility={
+                                                        reviewEligibility[
+                                                        item.id
+                                                        ]
+                                                    }
+                                                    onSubmit={submitReview}
+                                                />
+                                            )}
+                                        </div>
+                                    ))}
                                 </div>
 
                                 <div className="my-order-details">
                                     <div>
-                                        <span>
-                                            PAYMENT
-                                        </span>
+                                        <span>PAYMENT</span>
 
                                         <strong>
-                                            {
-                                                order.paymentMethod
-                                            }{' '}
-                                            ·{' '}
-                                            {
-                                                order.paymentStatus
-                                            }
+                                            {order.paymentMethod} ·{' '}
+                                            {order.paymentStatus}
                                         </strong>
                                     </div>
 
                                     <div>
-                                        <span>
-                                            DELIVERY
-                                        </span>
+                                        <span>DELIVERY</span>
 
                                         <strong>
-                                            {
-                                                order.deliveryLocation
-                                            }
+                                            {order.deliveryLocation}
                                         </strong>
                                     </div>
                                 </div>

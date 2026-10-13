@@ -10,6 +10,9 @@ export default function ProductCard({
     '₹' +
     Number(product.price).toLocaleString('en-IN');
 
+  const averageRating = Number(product.averageRating || 0);
+  const reviewCount = Number(product.reviewCount || 0);
+
   return (
     <article
       className="product"
@@ -36,8 +39,7 @@ export default function ProductCard({
             />
           ) : (
             <div
-              className={`product-icon ${product.iconClass || ''
-                }`}
+              className={`product-icon ${product.iconClass || ''}`}
               style={product.iconStyle || {}}
             />
           )}
@@ -50,6 +52,34 @@ export default function ProductCard({
           </span>
 
           <h3>{product.name}</h3>
+
+          <div
+            className="product-rating"
+            aria-label={
+              reviewCount > 0
+                ? `${averageRating.toFixed(1)} out of 5 stars, ${reviewCount} reviews`
+                : 'No reviews available'
+            }
+          >
+            {reviewCount > 0 ? (
+              <>
+                <span className="product-rating-star">
+                  ★
+                </span>
+                <span>
+                  {averageRating.toFixed(1)}
+                </span>
+                <span className="product-rating-count">
+                  · {reviewCount}{' '}
+                  {reviewCount === 1 ? 'review' : 'reviews'}
+                </span>
+              </>
+            ) : (
+              <span className="product-no-reviews">
+                No Reviews
+              </span>
+            )}
+          </div>
 
           <span className="product-view-link">
             VIEW DETAILS →
