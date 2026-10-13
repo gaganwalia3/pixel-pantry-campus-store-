@@ -233,6 +233,7 @@ export default function Navbar({
         ) : (
           <button
             type="button"
+            className="desktop-sign-in-button"
             onClick={onOpenAuth}
           >
             SIGN IN
@@ -245,6 +246,7 @@ export default function Navbar({
         <button
           type="button"
           className="mobile-profile-button"
+          hidden={!isAuthenticated}
           onClick={
             handleMobileProfileClick
           }
@@ -326,8 +328,8 @@ export default function Navbar({
           ===================================================== */}
       <div
         className={`mobile-profile-menu ${profileMenuOpen
-            ? 'open'
-            : ''
+          ? 'open'
+          : ''
           }`}
         role="menu"
       >

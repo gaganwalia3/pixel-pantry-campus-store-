@@ -6476,3 +6476,14 @@ footer {
     margin-left: 0;
   }
 }
+
+/* Fix duplicate sign-in controls on mobile */
+@media (max-width: 900px) {
+  .desktop-sign-in-button {
+    display: none !important;
+  }
+
+  .mobile-profile-button[hidden] {
+    display: none !important;
+  }
+}
