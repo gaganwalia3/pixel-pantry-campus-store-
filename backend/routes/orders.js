@@ -284,31 +284,48 @@ router.get(
                     .map(() => 'UNHEX(?)')
                     .join(', ');
 
+
             const [
                 itemRows,
             ] = await db.query(
                 `
-                SELECT
-                    HEX(oi.id) AS id,
-                    HEX(oi.order_id) AS order_id,
-                    HEX(oi.product_id) AS product_id,
-                    HEX(oi.seller_id) AS seller_id,
-                    oi.product_name,
-                    oi.quantity,
-                    oi.unit_price,
-                    oi.line_total,
-                    sp.shop_name
-                FROM order_items oi
-                INNER JOIN seller_profiles sp
-                    ON sp.id = oi.seller_id
-                WHERE oi.order_id IN (
-                    ${placeholders}
-                )
-                ORDER BY
-                    oi.created_at ASC
-                `,
-                orderIds,
+    SELECT
+        HEX(oi.id) AS id,
+        HEX(oi.order_id) AS order_id,
+        HEX(oi.product_id) AS product_id,
+        HEX(oi.seller_id) AS seller_id,
+        oi.product_name,
+        oi.quantity,
+        oi.unit_price,
+        oi.line_total,
+        oi.fulfillment_status,
+        oi.delivered_at,
+        sp.shop_name,
+
+        EXISTS (
+            SELECT 1
+            FROM product_reviews pr
+            WHERE pr.order_item_id = oi.id
+              AND pr.user_id = UNHEX(?)
+        ) AS already_reviewed
+
+    FROM order_items oi
+
+    INNER JOIN seller_profiles sp
+        ON sp.id = oi.seller_id
+
+    WHERE oi.order_id IN (
+        ${placeholders}
+    )
+
+    ORDER BY oi.created_at ASC
+    `,
+                [
+                    req.user.id,
+                    ...orderIds,
+                ],
             );
+
 
             const itemsByOrder =
                 new Map();
@@ -352,6 +369,9 @@ router.get(
                             decimalToNumber(
                                 item.line_total,
                             ),
+                        fulfillmentStatus: item.fulfillment_status,
+                        deliveredAt: item.delivered_at,
+                        alreadyReviewed: Boolean(item.already_reviewed),
                     });
             }
 

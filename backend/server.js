@@ -21,6 +21,7 @@ const productRoutes = require('./routes/products');
 const orderRoutes = require('./routes/orders');
 const adminOrderRoutes = require('./routes/adminOrders');
 const sellerOrderRoutes = require('./routes/sellerOrders');
+const productReviewRoutes = require('./routes/productReviews');
 
 const sessionKnex = knex({
     client: 'mysql2',
@@ -123,6 +124,7 @@ app.use(
 /*
  * Seller products
  */
+
 app.use(
     '/api/seller/products',
     sellerProductRoutes,
@@ -139,6 +141,11 @@ app.use(
 /*
  * Public products
  */
+app.use(
+    '/api/products',
+    productReviewRoutes,
+);
+
 app.use(
     '/api/products',
     productRoutes,
