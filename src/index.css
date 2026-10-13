@@ -5924,20 +5924,21 @@ footer {
 }
 
 
+
 /* =========================================================
    PRODUCT CARD + DETAILS MODAL LAYOUT FIX
    ========================================================= */
 
-/* Keep every product card aligned */
+/* Product catalogue grid */
 .products {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: stretch;
 }
 
 .product {
-  min-width: 0;
   display: flex;
   flex-direction: column;
+  min-width: 0;
   height: 100%;
 }
 
@@ -5947,8 +5948,8 @@ footer {
   align-items: stretch;
   width: 100%;
   min-width: 0;
-  padding: 0;
   margin: 0;
+  padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -5968,7 +5969,7 @@ footer {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   object-position: center;
 }
 
@@ -6002,30 +6003,68 @@ footer {
   min-width: 0;
 }
 
-/* Modal overlay */
+/* Product details overlay */
 .modal:has(.product-details-modal) {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: 1100;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  background: rgba(24, 16, 30, 0.62);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
-/* Compact modal with its own vertical scroll */
+/* Opaque product details panel */
 .product-details-modal {
   position: relative;
+  isolation: isolate;
   width: min(900px, 100%);
   max-width: 900px;
-  max-height: min(760px, calc(100dvh - 40px));
+  max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
   margin: auto;
-  padding: 28px;
+  padding: 58px 28px 28px;
   overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid #e7dfe8;
   border-radius: 22px;
   box-sizing: border-box;
+  background: #faf7f7;
+  color: #302638;
+  box-shadow: 0 25px 70px rgba(24, 14, 32, 0.36);
+}
+
+/* Keep the close button visible and above modal content */
+.product-details-modal>.close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid #ded3e0;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #302638;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(24, 14, 32, 0.12);
+}
+
+.product-details-modal>.close:hover {
+  background: #f0e8f2;
 }
 
 .product-details-content {
@@ -6038,12 +6077,12 @@ footer {
 }
 
 .product-details-image {
-  width: 100%;
-  height: 360px;
-  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
+  height: 360px;
+  min-width: 0;
   overflow: hidden;
   border-radius: 16px;
   background: #f1ece5;
@@ -6082,6 +6121,7 @@ footer {
   margin-top: 12px;
 }
 
+/* Tablet and mobile */
 @media (max-width: 800px) {
   .products {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -6093,7 +6133,7 @@ footer {
   }
 
   .product-details-modal {
-    padding: 20px;
+    padding: 54px 20px 20px;
   }
 
   .product-details-content {
@@ -6106,14 +6146,16 @@ footer {
   }
 }
 
+/* Small phones */
 @media (max-width: 420px) {
   .modal:has(.product-details-modal) {
     padding: 10px;
   }
 
   .product-details-modal {
+    max-height: calc(100vh - 20px);
     max-height: calc(100dvh - 20px);
-    padding: 16px;
+    padding: 52px 16px 16px;
     border-radius: 16px;
   }
 
