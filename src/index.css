@@ -6487,3 +6487,71 @@ footer {
     display: none !important;
   }
 }
+
+
+/* =========================================================
+   SELLER DASHBOARD TABS
+   ========================================================= */
+
+.seller-dashboard-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+
+  margin: 24px 0;
+  padding: 6px;
+
+  border: 1px solid var(--line);
+  border-radius: 16px;
+
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.seller-dashboard-tab {
+  min-height: 46px;
+  padding: 12px 8px;
+
+  border: 1px solid transparent;
+  border-radius: 11px;
+
+  background: transparent;
+  color: var(--muted);
+
+  font-family: "DM Mono", monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease;
+}
+
+.seller-dashboard-tab:hover {
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--ink);
+}
+
+.seller-dashboard-tab[aria-selected="true"] {
+  background: var(--orange);
+  border-color: var(--orange);
+  color: #ffffff;
+}
+
+.seller-dashboard-tab:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+@media (max-width: 420px) {
+  .seller-dashboard-tabs {
+    gap: 4px;
+    padding: 4px;
+  }
+
+  .seller-dashboard-tab {
+    padding: 10px 4px;
+    font-size: 10px;
+  }
+}

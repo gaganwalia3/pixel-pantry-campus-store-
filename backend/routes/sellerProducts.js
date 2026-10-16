@@ -2047,5 +2047,234 @@ router.patch(
     },
 );
 
+/* =========================================================
+   SELLER PRODUCT ARCHIVE / RESTORE / DELETE
+   ========================================================= */
+
+/* =========================================================
+   ARCHIVE / RESTORE SELLER PRODUCT
+   Audit logging is committed with the status change.
+   ========================================================= */
+
+const changeSellerProductStatus = async (
+    req,
+    res,
+    targetStatus,
+) => {
+    let connection;
+
+    try {
+        if (!isValidId(req.params.id)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid product id',
+            });
+        }
+
+        const productId = Buffer.from(
+            req.params.id,
+            'hex',
+        );
+
+        const sellerUserId = Buffer.from(
+            req.user.id,
+            'hex',
+        );
+
+        const allowedPreviousStatuses =
+            targetStatus === 'ARCHIVED'
+                ? ['ACTIVE', 'DRAFT']
+                : ['ARCHIVED'];
+
+        const auditAction =
+            targetStatus === 'ARCHIVED'
+                ? 'SELLER_PRODUCT_ARCHIVED'
+                : 'SELLER_PRODUCT_RESTORED';
+
+        connection = await db.getConnection();
+
+        await connection.beginTransaction();
+
+        const [sellerRows] = await connection.execute(
+            `SELECT id, status
+             FROM seller_profiles
+             WHERE user_id = ?
+             LIMIT 1
+             FOR UPDATE`,
+            [sellerUserId],
+        );
+
+        if (sellerRows.length === 0) {
+            await connection.rollback();
+
+            return res.status(403).json({
+                success: false,
+                message: 'Seller profile not found',
+            });
+        }
+
+        const seller = sellerRows[0];
+
+        if (seller.status !== 'ACTIVE') {
+            await connection.rollback();
+
+            return res.status(403).json({
+                success: false,
+                message: 'Seller account is not active',
+            });
+        }
+
+        const [productRows] = await connection.execute(
+            `SELECT id, status
+             FROM products
+             WHERE id = ?
+               AND seller_id = ?
+             LIMIT 1
+             FOR UPDATE`,
+            [productId, seller.id],
+        );
+
+        if (productRows.length === 0) {
+            await connection.rollback();
+
+            return res.status(404).json({
+                success: false,
+                message: 'Product not found',
+            });
+        }
+
+        const product = productRows[0];
+
+        if (
+            !allowedPreviousStatuses.includes(
+                product.status,
+            )
+        ) {
+            await connection.rollback();
+
+            return res.status(409).json({
+                success: false,
+                message:
+                    'Product status does not allow this action',
+                currentStatus: product.status,
+            });
+        }
+
+        const previousStatus = product.status;
+
+        const [updateResult] = await connection.execute(
+            `UPDATE products
+             SET status = ?
+             WHERE id = ?
+               AND seller_id = ?
+               AND status = ?`,
+            [
+                targetStatus,
+                productId,
+                seller.id,
+                previousStatus,
+            ],
+        );
+
+        if (updateResult.affectedRows !== 1) {
+            await connection.rollback();
+
+            return res.status(409).json({
+                success: false,
+                message:
+                    'Product status changed. Please try again.',
+            });
+        }
+
+        const auditId = Buffer.from(
+            crypto.randomUUID().replace(/-/g, ''),
+            'hex',
+        );
+
+        await connection.execute(
+            `INSERT INTO audit_logs (
+                id,
+                user_id,
+                action,
+                entity_type,
+                entity_id,
+                details
+            )
+            VALUES (?, ?, ?, ?, ?, ?)`,
+            [
+                auditId,
+                sellerUserId,
+                auditAction,
+                'PRODUCT',
+                productId,
+                JSON.stringify({
+                    previousStatus,
+                    newStatus: targetStatus,
+                }),
+            ],
+        );
+
+        await connection.commit();
+
+        return res.json({
+            success: true,
+            message:
+                targetStatus === 'ARCHIVED'
+                    ? 'Product archived successfully'
+                    : 'Product restored as a draft',
+            product: {
+                id: req.params.id,
+                status: targetStatus,
+            },
+        });
+    } catch (error) {
+        if (connection) {
+            try {
+                await connection.rollback();
+            } catch (rollbackError) {
+                console.error(
+                    'Seller product status rollback error:',
+                    rollbackError,
+                );
+            }
+        }
+
+        console.error(
+            'Seller product status change error:',
+            error,
+        );
+
+        return res.status(500).json({
+            success: false,
+            message: 'Unable to change product status',
+        });
+    } finally {
+        if (connection) {
+            connection.release();
+        }
+    }
+};
+
+router.patch(
+    '/:id/archive',
+    sellerProductRateLimiter,
+    (req, res) =>
+        changeSellerProductStatus(
+            req,
+            res,
+            'ARCHIVED',
+        ),
+);
+
+router.patch(
+    '/:id/restore',
+    sellerProductRateLimiter,
+    (req, res) =>
+        changeSellerProductStatus(
+            req,
+            res,
+            'DRAFT',
+        ),
+);
 
 module.exports = router;

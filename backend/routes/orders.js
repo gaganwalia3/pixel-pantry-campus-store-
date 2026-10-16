@@ -819,7 +819,8 @@ router.post(
                     INNER JOIN brands b
                         ON b.id = p.brand_id
                     WHERE p.id = UNHEX(?)
-                    LIMIT 1
+LIMIT 1
+FOR UPDATE
                     `,
                     [productId],
                 );

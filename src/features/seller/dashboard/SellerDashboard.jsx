@@ -6,6 +6,8 @@ import React, {
 import {
     getSellerProducts,
     publishSellerProduct,
+    archiveSellerProduct,
+    restoreSellerProduct,
 } from '../products/sellerProductStore';
 
 import AddProductModal from '../products/AddProductModal';
@@ -57,6 +59,9 @@ export default function SellerDashboard({
 
     const [addProductOpen, setAddProductOpen] =
         useState(false);
+    const [changingProductStatusId, setChangingProductStatusId] =
+        useState(null);
+    const [activeTab, setActiveTab] = useState('orders');
 
     const [productToEdit, setProductToEdit] =
         useState(null);
@@ -171,6 +176,7 @@ export default function SellerDashboard({
         setProductToEdit(null);
     };
 
+
     const handlePreviewProduct = (
         product,
     ) => {
@@ -237,6 +243,75 @@ export default function SellerDashboard({
             setIsPublishing(false);
         }
     };
+    const handleArchiveProduct = async (product) => {
+        if (
+            !product ||
+            !['ACTIVE', 'DRAFT'].includes(product.status) ||
+            changingProductStatusId
+        ) {
+            return;
+        }
+
+        const confirmed = window.confirm(
+            `Archive "${product.name}"? It will no longer be available to buy. Past order history will be preserved.`,
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        setChangingProductStatusId(product.id);
+
+        try {
+            await archiveSellerProduct(product.id);
+
+            await Promise.all([
+                loadDashboard(),
+                loadProducts(),
+            ]);
+
+            onToast('Product archived successfully.');
+        } catch (error) {
+            onToast(
+                error.message ||
+                'Unable to archive product.',
+            );
+        } finally {
+            setChangingProductStatusId(null);
+        }
+    };
+
+    const handleRestoreProduct = async (product) => {
+        if (
+            !product ||
+            product.status !== 'ARCHIVED' ||
+            changingProductStatusId
+        ) {
+            return;
+        }
+
+        setChangingProductStatusId(product.id);
+
+        try {
+            await restoreSellerProduct(product.id);
+
+            await Promise.all([
+                loadDashboard(),
+                loadProducts(),
+            ]);
+
+            onToast(
+                'Product restored as a draft. Publish it when ready.',
+            );
+        } catch (error) {
+            onToast(
+                error.message ||
+                'Unable to restore product.',
+            );
+        } finally {
+            setChangingProductStatusId(null);
+        }
+    };
 
     const formatPrice = (price) => {
         return `₹${Number(price).toLocaleString(
@@ -247,6 +322,13 @@ export default function SellerDashboard({
             },
         )}`;
     };
+    const visibleProducts = products.filter((product) => {
+        if (activeTab === 'drafts') {
+            return product.status === 'DRAFT';
+        }
+
+        return product.status !== 'DRAFT';
+    });
 
     return (
         <>
@@ -347,152 +429,219 @@ export default function SellerDashboard({
                                     </strong>
                                 </div>
                             </div>
+                            <div
+                                className="seller-dashboard-tabs"
+                                role="tablist"
+                                aria-label="Seller dashboard sections"
+                            >
+                                <button
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={activeTab === 'orders'}
+                                    className="seller-dashboard-tab"
+                                    onClick={() => setActiveTab('orders')}
+                                >
+                                    ORDERS
+                                </button>
 
-                            <div className="seller-dashboard-section">
-                                <div className="section-top">
-                                    <div>
-                                        <div className="eyebrow">
-                                            Inventory
+                                <button
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={activeTab === 'products'}
+                                    className="seller-dashboard-tab"
+                                    onClick={() => setActiveTab('products')}
+                                >
+                                    PRODUCTS
+                                </button>
+
+                                <button
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={activeTab === 'drafts'}
+                                    className="seller-dashboard-tab"
+                                    onClick={() => setActiveTab('drafts')}
+                                >
+                                    DRAFTS
+                                </button>
+                            </div>
+                            {activeTab !== 'orders' && (
+                                <div className="seller-dashboard-section">
+                                    <div className="section-top">
+                                        <div>
+                                            <div className="eyebrow">
+                                                Inventory
+                                            </div>
+
+                                            <h3>
+                                                {activeTab === 'drafts'
+                                                    ? 'Your drafts'
+                                                    : 'Your products'}
+                                            </h3>
                                         </div>
 
-                                        <h3>
-                                            Your products
-                                        </h3>
+                                        <button
+                                            className="primary seller-add-product"
+                                            type="button"
+                                            onClick={() => {
+                                                setProductToEdit(
+                                                    null,
+                                                );
+
+                                                setAddProductOpen(
+                                                    true,
+                                                );
+                                            }}
+                                        >
+                                            + ADD PRODUCT
+                                        </button>
                                     </div>
 
-                                    <button
-                                        className="primary seller-add-product"
-                                        type="button"
-                                        onClick={() => {
-                                            setProductToEdit(
-                                                null,
-                                            );
+                                    {isLoadingProducts ? (
+                                        <div className="seller-empty">
+                                            <strong>
+                                                Loading your products.
+                                            </strong>
 
-                                            setAddProductOpen(
-                                                true,
-                                            );
-                                        }}
-                                    >
-                                        + ADD PRODUCT
-                                    </button>
+                                            <p>
+                                                Fetching your inventory
+                                                from the database.
+                                            </p>
+                                        </div>
+                                    ) : visibleProducts.length === 0 ? (
+                                        <div className="seller-empty">
+                                            <strong>
+                                                Your shelf is
+                                                empty.
+                                            </strong>
+
+                                            <p>
+                                                No active drafts.
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="seller-products-list">
+                                            {visibleProducts.map(
+                                                (product) => (
+                                                    <article
+                                                        key={
+                                                            product.id
+                                                        }
+                                                        className="seller-product-row"
+                                                    >
+                                                        <div className="seller-product-main">
+                                                            <div className="seller-product-status">
+                                                                {
+                                                                    product.status
+                                                                }
+                                                            </div>
+
+                                                            <h4>
+                                                                {
+                                                                    product.name
+                                                                }
+                                                            </h4>
+
+                                                            <p>
+                                                                {
+                                                                    product
+                                                                        .category
+                                                                        .name
+                                                                }{' '}
+                                                                ·{' '}
+                                                                {
+                                                                    product
+                                                                        .brand
+                                                                        .name
+                                                                }
+                                                            </p>
+                                                        </div>
+
+                                                        <div className="seller-product-details">
+                                                            <strong>
+                                                                {formatPrice(
+                                                                    product.price,
+                                                                )}
+                                                            </strong>
+
+                                                            <span>
+                                                                {
+                                                                    product
+                                                                        .inventory
+                                                                        .availableQuantity
+                                                                }{' '}
+                                                                available
+                                                            </span>
+
+                                                            <div className="seller-product-actions">
+                                                                {product.status !== 'ARCHIVED' ? (
+                                                                    <>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="seller-product-edit"
+                                                                            onClick={() =>
+                                                                                handleEditProduct(product)
+                                                                            }
+                                                                        >
+                                                                            EDIT
+                                                                        </button>
+
+                                                                        <button
+                                                                            type="button"
+                                                                            className="seller-product-preview"
+                                                                            onClick={() =>
+                                                                                handlePreviewProduct(product)
+                                                                            }
+                                                                        >
+                                                                            PREVIEW
+                                                                        </button>
+
+                                                                        <button
+                                                                            type="button"
+                                                                            className="seller-product-archive"
+                                                                            disabled={
+                                                                                changingProductStatusId !== null
+                                                                            }
+                                                                            onClick={() =>
+                                                                                handleArchiveProduct(product)
+                                                                            }
+                                                                        >
+                                                                            {changingProductStatusId === product.id
+                                                                                ? 'ARCHIVING…'
+                                                                                : 'ARCHIVE'}
+                                                                        </button>
+                                                                    </>
+                                                                ) : (
+                                                                    <button
+                                                                        type="button"
+                                                                        className="seller-product-restore"
+                                                                        disabled={
+                                                                            changingProductStatusId !== null
+                                                                        }
+                                                                        onClick={() =>
+                                                                            handleRestoreProduct(product)
+                                                                        }
+                                                                    >
+                                                                        {changingProductStatusId === product.id
+                                                                            ? 'RESTORING…'
+                                                                            : 'RESTORE'}
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </article>
+                                                ),
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
+                            )}
 
-                                {isLoadingProducts ? (
-                                    <div className="seller-empty">
-                                        <strong>
-                                            Loading your products.
-                                        </strong>
-
-                                        <p>
-                                            Fetching your inventory
-                                            from the database.
-                                        </p>
-                                    </div>
-                                ) : products.length ===
-                                    0 ? (
-                                    <div className="seller-empty">
-                                        <strong>
-                                            Your shelf is
-                                            empty.
-                                        </strong>
-
-                                        <p>
-                                            Add your first
-                                            product and start
-                                            building your shop.
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div className="seller-products-list">
-                                        {products.map(
-                                            (product) => (
-                                                <article
-                                                    key={
-                                                        product.id
-                                                    }
-                                                    className="seller-product-row"
-                                                >
-                                                    <div className="seller-product-main">
-                                                        <div className="seller-product-status">
-                                                            {
-                                                                product.status
-                                                            }
-                                                        </div>
-
-                                                        <h4>
-                                                            {
-                                                                product.name
-                                                            }
-                                                        </h4>
-
-                                                        <p>
-                                                            {
-                                                                product
-                                                                    .category
-                                                                    .name
-                                                            }{' '}
-                                                            ·{' '}
-                                                            {
-                                                                product
-                                                                    .brand
-                                                                    .name
-                                                            }
-                                                        </p>
-                                                    </div>
-
-                                                    <div className="seller-product-details">
-                                                        <strong>
-                                                            {formatPrice(
-                                                                product.price,
-                                                            )}
-                                                        </strong>
-
-                                                        <span>
-                                                            {
-                                                                product
-                                                                    .inventory
-                                                                    .availableQuantity
-                                                            }{' '}
-                                                            available
-                                                        </span>
-
-                                                        <div className="seller-product-actions">
-                                                            <button
-                                                                type="button"
-                                                                className="seller-product-edit"
-                                                                onClick={() =>
-                                                                    handleEditProduct(
-                                                                        product,
-                                                                    )
-                                                                }
-                                                            >
-                                                                EDIT
-                                                            </button>
-
-                                                            <button
-                                                                type="button"
-                                                                className="seller-product-preview"
-                                                                onClick={() =>
-                                                                    handlePreviewProduct(
-                                                                        product,
-                                                                    )
-                                                                }
-                                                            >
-                                                                PREVIEW
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </article>
-                                            ),
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-
-                            <SellerOrders
-                                isOpen={true}
-                                onToast={onToast}
-                            />
+                            {activeTab === 'orders' && (
+                                <SellerOrders
+                                    isOpen={true}
+                                    onToast={onToast}
+                                />
+                            )}
                         </>
                     ) : null}
                 </div>

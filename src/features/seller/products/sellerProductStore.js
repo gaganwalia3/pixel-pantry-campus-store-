@@ -236,3 +236,64 @@ export const uploadSellerProductImage =
 
         return data.image;
     };
+/* =========================================================
+ARCHIVE SELLER PRODUCT
+========================================================= */
+
+export const archiveSellerProduct = async (productId) => {
+    const csrfToken = await getCsrfToken();
+
+    const data = await request(
+        `/api/seller/products/${productId}/archive`,
+        {
+            method: 'PATCH',
+            headers: {
+                'X-CSRF-Token': csrfToken,
+            },
+        },
+    );
+
+    return data.product;
+};
+
+
+/* =========================================================
+   RESTORE ARCHIVED PRODUCT AS DRAFT
+   ========================================================= */
+
+export const restoreSellerProduct = async (productId) => {
+    const csrfToken = await getCsrfToken();
+
+    const data = await request(
+        `/api/seller/products/${productId}/restore`,
+        {
+            method: 'PATCH',
+            headers: {
+                'X-CSRF-Token': csrfToken,
+            },
+        },
+    );
+
+    return data.product;
+};
+
+
+/* =========================================================
+   PERMANENTLY DELETE SELLER PRODUCT
+   ========================================================= */
+
+export const deleteSellerProduct = async (productId) => {
+    const csrfToken = await getCsrfToken();
+
+    const data = await request(
+        `/api/seller/products/${productId}`,
+        {
+            method: 'DELETE',
+            headers: {
+                'X-CSRF-Token': csrfToken,
+            },
+        },
+    );
+
+    return data.product;
+};

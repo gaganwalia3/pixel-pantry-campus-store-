@@ -44,13 +44,82 @@ router.get('/', async (req, res) => {
                     FROM products p
                     WHERE p.seller_id = sp.id
                       AND p.status = 'DRAFT'
-                ) AS draft_product_count
+                ) AS draft_product_count,
+
+                (
+                    SELECT COUNT(*)
+                    FROM products p
+                    WHERE p.seller_id = sp.id
+                      AND p.status = 'ARCHIVED'
+                ) AS archived_product_count,
+
+                COALESCE(
+                    sales.order_count,
+                    0
+                ) AS order_count,
+
+                COALESCE(
+                    sales.gross_sales,
+                    0
+                ) AS gross_sales,
+
+                ROUND(
+                    COALESCE(sales.gross_sales, 0)
+                    * sp.commission_rate / 100,
+                    2
+                ) AS commission_amount,
+
+                ROUND(
+                    COALESCE(sales.gross_sales, 0)
+                    * (100 - sp.commission_rate) / 100,
+                    2
+                ) AS seller_amount
 
              FROM seller_profiles sp
+
              INNER JOIN users u
                 ON u.id = sp.user_id
+
+             LEFT JOIN (
+                SELECT
+                    oi.seller_id,
+
+                    COUNT(
+                        DISTINCT CASE
+                            WHEN o.status NOT IN (
+                                'CANCELLED',
+                                'FAILED'
+                            )
+                            THEN o.id
+                        END
+                    ) AS order_count,
+
+                    COALESCE(
+                        SUM(
+                            CASE
+                                WHEN o.status NOT IN (
+                                    'CANCELLED',
+                                    'FAILED'
+                                )
+                                THEN oi.line_total
+                                ELSE 0
+                            END
+                        ),
+                        0
+                    ) AS gross_sales
+
+                FROM order_items oi
+
+                INNER JOIN orders o
+                    ON o.id = oi.order_id
+
+                GROUP BY oi.seller_id
+             ) sales
+                ON sales.seller_id = sp.id
+
              WHERE sp.user_id = ?
                AND u.is_active = 1
+
              LIMIT 1`,
             [sellerUserId],
         );
@@ -73,22 +142,50 @@ router.get('/', async (req, res) => {
 
         return res.json({
             success: true,
+
             seller: {
                 id: seller.id.toString('hex'),
+
                 shopName: seller.shop_name,
+
                 commissionRate: Number(
                     seller.commission_rate,
                 ),
+
                 status: seller.status,
+
                 approvedAt: seller.approved_at,
+
                 productCount: Number(
                     seller.product_count,
                 ),
+
                 activeProductCount: Number(
                     seller.active_product_count,
                 ),
+
                 draftProductCount: Number(
                     seller.draft_product_count,
+                ),
+
+                archivedProductCount: Number(
+                    seller.archived_product_count,
+                ),
+
+                orderCount: Number(
+                    seller.order_count,
+                ),
+
+                grossSales: Number(
+                    seller.gross_sales,
+                ),
+
+                commissionAmount: Number(
+                    seller.commission_amount,
+                ),
+
+                sellerAmount: Number(
+                    seller.seller_amount,
                 ),
             },
         });
