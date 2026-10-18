@@ -2,4 +2,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://supercampus.co.in/sitemap.xml
+Sitemap: https://www.supercampus.co.in/sitemap.xml
