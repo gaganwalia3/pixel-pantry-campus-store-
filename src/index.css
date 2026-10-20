@@ -218,7 +218,7 @@ button {
   gap: 28px;
 
   margin-left: auto;
-  margin-right: 24px;
+  margin-right: 10px;
 }
 
 .nav-links a,
@@ -6553,5 +6553,215 @@ footer {
   .seller-dashboard-tab {
     padding: 10px 4px;
     font-size: 10px;
+  }
+}
+
+
+/* =========================================================
+   SUPER CAMPUS — LOGOUT CONFIRMATION MODAL
+   ========================================================= */
+
+.logout-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+
+  display: grid;
+  place-items: center;
+
+  padding: 20px;
+
+  background: rgba(23, 23, 23, 0.48);
+
+  -webkit-backdrop-filter: blur(9px);
+  backdrop-filter: blur(9px);
+
+  animation: logout-backdrop-in 180ms ease-out;
+}
+
+.logout-confirm-dialog {
+  width: min(100%, 440px);
+  padding: 32px;
+
+  border: 1px solid rgba(23, 23, 23, 0.10);
+  border-radius: 25px;
+
+  background: #fffdf8;
+  color: var(--ink);
+
+  box-shadow:
+    0 32px 90px rgba(23, 23, 23, 0.24),
+    0 4px 12px rgba(23, 23, 23, 0.06);
+
+  animation: logout-dialog-in 200ms ease-out;
+}
+
+.logout-confirm-icon {
+  width: 50px;
+  height: 50px;
+
+  display: grid;
+  place-items: center;
+
+  margin-bottom: 23px;
+
+  border: 1px solid rgba(255, 100, 24, 0.16);
+  border-radius: 16px;
+
+  background: #fff0e5;
+  color: var(--orange);
+}
+
+.logout-confirm-icon svg {
+  width: 25px;
+  height: 25px;
+}
+
+.logout-confirm-eyebrow {
+  margin-bottom: 9px;
+
+  color: var(--muted);
+
+  font-family: "DM Mono", monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.13em;
+}
+
+.logout-confirm-dialog h2 {
+  margin: 0;
+
+  color: var(--ink);
+
+  font-family: Manrope, Arial, sans-serif;
+  font-size: clamp(25px, 5vw, 31px);
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.055em;
+}
+
+.logout-confirm-dialog p {
+  margin: 13px 0 26px;
+
+  color: var(--muted);
+
+  font-family: Manrope, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.75;
+}
+
+.logout-confirm-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.logout-confirm-actions button {
+  min-height: 48px;
+  flex: 1;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 12px 14px;
+
+  border: 1px solid transparent;
+  border-radius: 13px;
+
+  font-family: Manrope, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.logout-confirm-cancel {
+  border-color: rgba(23, 23, 23, 0.14) !important;
+
+  background: #ffffff;
+  color: var(--ink);
+}
+
+.logout-confirm-cancel:hover {
+  border-color: rgba(23, 23, 23, 0.28) !important;
+  background: #f7f2e9;
+}
+
+.logout-confirm-submit {
+  border-color: var(--orange-dark) !important;
+
+  background: var(--orange);
+  color: #ffffff;
+}
+
+.logout-confirm-submit:hover {
+  border-color: var(--orange-dark) !important;
+  background: var(--orange-dark);
+}
+
+.logout-confirm-actions button:active {
+  transform: scale(0.98);
+}
+
+.logout-confirm-actions button:focus-visible {
+  outline: 3px solid rgba(255, 100, 24, 0.4);
+  outline-offset: 3px;
+}
+
+@keyframes logout-backdrop-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes logout-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 480px) {
+  .logout-confirm-dialog {
+    padding: 25px 21px;
+    border-radius: 21px;
+  }
+
+  .logout-confirm-dialog p {
+    font-size: 13px;
+  }
+
+  .logout-confirm-actions {
+    flex-direction: column-reverse;
+  }
+
+  .logout-confirm-actions button {
+    width: 100%;
+    min-height: 48px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .logout-confirm-backdrop,
+  .logout-confirm-dialog,
+  .logout-confirm-actions button {
+    animation: none;
+    transition: none;
   }
 }
