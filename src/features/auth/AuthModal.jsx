@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+
+import React, { useEffect, useState } from 'react';
 
 import {
     getCsrfToken,
     signIn,
     signUp,
+    verifyOtp,
+    resendOtp,
 } from './authStore';
 
 const INITIAL_SIGN_IN_FORM = {
@@ -16,6 +19,9 @@ const INITIAL_SIGN_UP_FORM = {
     email: '',
     password: '',
 };
+
+const OTP_LENGTH = 6;
+const RESEND_COOLDOWN_SECONDS = 60;
 
 export default function AuthModal({
     isOpen,
@@ -34,6 +40,26 @@ export default function AuthModal({
     );
 
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const [stage, setStage] = useState('credentials');
+    const [challengeId, setChallengeId] = useState('');
+    const [otp, setOtp] = useState('');
+    const [otpEmail, setOtpEmail] = useState('');
+    const [resendCooldown, setResendCooldown] = useState(0);
+
+    useEffect(() => {
+        if (stage !== 'otp' || resendCooldown <= 0) {
+            return undefined;
+        }
+
+        const timer = window.setTimeout(() => {
+            setResendCooldown((current) =>
+                Math.max(0, current - 1),
+            );
+        }, 1000);
+
+        return () => window.clearTimeout(timer);
+    }, [stage, resendCooldown]);
 
     if (!isOpen) {
         return null;
@@ -57,6 +83,22 @@ export default function AuthModal({
         }));
     };
 
+    const beginOtpStage = ({
+        challenge,
+        email,
+        successMessage,
+    }) => {
+        setChallengeId(challenge.challengeId);
+        setOtpEmail(email);
+        setOtp('');
+        setStage('otp');
+        setResendCooldown(RESEND_COOLDOWN_SECONDS);
+
+        if (successMessage) {
+            onToast(successMessage);
+        }
+    };
+
     const handleSignIn = async (event) => {
         event.preventDefault();
 
@@ -69,25 +111,26 @@ export default function AuthModal({
         try {
             const csrfToken = await getCsrfToken();
 
-            const session = await signIn({
+            const result = await signIn({
                 email: signInForm.email,
                 password: signInForm.password,
                 csrfToken,
             });
 
-            onAuthenticated(session);
+            if (!result.requiresOtp || !result.challengeId) {
+                throw new Error(
+                    'The server did not start email verification.',
+                );
+            }
 
-            setSignInForm(INITIAL_SIGN_IN_FORM);
-
-            onClose();
-
-            onToast(
-                `Welcome back, ${session.user.name}.`,
-            );
+            beginOtpStage({
+                challenge: result,
+                email: signInForm.email,
+                successMessage:
+                    'Verification code sent to your email.',
+            });
         } catch (error) {
-            onToast(
-                error.message || 'Unable to sign in.',
-            );
+            onToast(error.message || 'Unable to sign in.');
         } finally {
             setIsSubmitting(false);
         }
@@ -105,30 +148,25 @@ export default function AuthModal({
         try {
             const csrfToken = await getCsrfToken();
 
-            await signUp({
+            const result = await signUp({
                 name: signUpForm.name,
                 email: signUpForm.email,
                 password: signUpForm.password,
                 csrfToken,
             });
 
-            const loginCsrfToken = await getCsrfToken();
+            if (!result.requiresOtp || !result.challengeId) {
+                throw new Error(
+                    'The server did not start email verification.',
+                );
+            }
 
-            const session = await signIn({
+            beginOtpStage({
+                challenge: result,
                 email: signUpForm.email,
-                password: signUpForm.password,
-                csrfToken: loginCsrfToken,
+                successMessage:
+                    'Verification code sent to your email.',
             });
-
-            onAuthenticated(session);
-
-            setSignUpForm(INITIAL_SIGN_UP_FORM);
-
-            onClose();
-
-            onToast(
-                `Account created! Welcome, ${session.user.name}.`,
-            );
         } catch (error) {
             onToast(
                 error.message || 'Unable to create account.',
@@ -138,12 +176,126 @@ export default function AuthModal({
         }
     };
 
+    const handleOtpChange = (event) => {
+        const value = event.target.value
+            .replace(/\D/g, '')
+            .slice(0, OTP_LENGTH);
+
+        setOtp(value);
+    };
+
+    const handleVerifyOtp = async (event) => {
+        event.preventDefault();
+
+        if (isSubmitting || otp.length !== OTP_LENGTH) {
+            return;
+        }
+
+        setIsSubmitting(true);
+
+        try {
+            const csrfToken = await getCsrfToken();
+
+            const session = await verifyOtp({
+                challengeId,
+                otp,
+                csrfToken,
+            });
+
+            if (!session.success || !session.user) {
+                throw new Error(
+                    'Email verification was not completed.',
+                );
+            }
+
+            onAuthenticated({
+    isAuthenticated: true,
+    user: session.user,
+});
+
+            setSignInForm(INITIAL_SIGN_IN_FORM);
+            setSignUpForm(INITIAL_SIGN_UP_FORM);
+            setOtp('');
+            setChallengeId('');
+            setOtpEmail('');
+            setStage('credentials');
+
+            onClose();
+
+            onToast(
+                isSignUp
+                    ? `Account created! Welcome, ${session.user.name}.`
+                    : `Welcome back, ${session.user.name}.`,
+            );
+        } catch (error) {
+            onToast(
+                error.message || 'Unable to verify the code.',
+            );
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleResendOtp = async () => {
+        if (
+            isSubmitting ||
+            resendCooldown > 0 ||
+            !challengeId
+        ) {
+            return;
+        }
+
+        setIsSubmitting(true);
+
+        try {
+            const csrfToken = await getCsrfToken();
+
+            await resendOtp({
+                challengeId,
+                csrfToken,
+            });
+
+            setOtp('');
+            setResendCooldown(RESEND_COOLDOWN_SECONDS);
+
+            onToast('A new verification code has been sent.');
+        } catch (error) {
+            onToast(
+                error.message ||
+                'Unable to resend the verification code.',
+            );
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleBackToCredentials = () => {
+        if (isSubmitting) {
+            return;
+        }
+
+        setStage('credentials');
+        setChallengeId('');
+        setOtp('');
+        setOtpEmail('');
+        setResendCooldown(0);
+    };
+
+    const handleClose = () => {
+        if (isSubmitting) {
+            return;
+        }
+
+        onClose();
+    };
+
     return (
         <div
             className="modal show"
             onClick={(event) => {
                 if (
-                    event.target.classList.contains('modal')
+                    event.target.classList.contains('modal') &&
+                    !isSubmitting
                 ) {
                     onClose();
                 }
@@ -153,14 +305,94 @@ export default function AuthModal({
                 <button
                     className="close"
                     type="button"
-                    onClick={onClose}
+                    onClick={handleClose}
                     aria-label="Close authentication"
                     disabled={isSubmitting}
                 >
                     ×
                 </button>
 
-                {!isSignUp ? (
+                {stage === 'otp' ? (
+                    <div>
+                        <h2>Check your email.</h2>
+
+                        <p>
+                            We sent a six-digit verification code to{' '}
+                            <strong>{otpEmail}</strong>.
+                        </p>
+
+                        <form onSubmit={handleVerifyOtp}>
+                            <div className="field">
+                                <label htmlFor="auth-otp">
+                                    Verification code
+                                </label>
+
+                                <input
+                                    id="auth-otp"
+                                    name="otp"
+                                    type="text"
+                                    inputMode="numeric"
+                                    autoComplete="one-time-code"
+                                    pattern="[0-9]{6}"
+                                    maxLength={OTP_LENGTH}
+                                    required
+                                    value={otp}
+                                    onChange={handleOtpChange}
+                                    placeholder="000000"
+                                    disabled={isSubmitting}
+                                    aria-describedby="otp-help"
+                                />
+
+                                <small id="otp-help">
+                                    Enter the six-digit code. It expires
+                                    after 10 minutes.
+                                </small>
+                            </div>
+
+                            <button
+                                className="primary"
+                                type="submit"
+                                disabled={
+                                    isSubmitting ||
+                                    otp.length !== OTP_LENGTH
+                                }
+                            >
+                                {isSubmitting
+                                    ? 'VERIFYING...'
+                                    : 'VERIFY EMAIL →'}
+                            </button>
+                        </form>
+
+                        <p className="switch">
+                            {resendCooldown > 0 ? (
+                                <>
+                                    Resend code in{' '}
+                                    <strong>
+                                        {resendCooldown}s
+                                    </strong>
+                                </>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={handleResendOtp}
+                                    disabled={isSubmitting}
+                                >
+                                    Resend verification code
+                                </button>
+                            )}
+                        </p>
+
+                        <p className="switch">
+                            <button
+                                type="button"
+                                onClick={handleBackToCredentials}
+                                disabled={isSubmitting}
+                            >
+                                Back
+                            </button>
+                        </p>
+                    </div>
+                ) : !isSignUp ? (
                     <div>
                         <h2>Welcome back.</h2>
 
@@ -285,6 +517,7 @@ export default function AuthModal({
                                     required
                                     type="password"
                                     minLength={8}
+                                    maxLength={128}
                                     value={signUpForm.password}
                                     onChange={handleSignUpChange}
                                     placeholder="Choose something secure"
