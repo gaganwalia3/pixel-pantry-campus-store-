@@ -1,3 +1,4 @@
+
 const requiredEnvVars = [
     'DB_HOST',
     'DB_PORT',
@@ -51,7 +52,9 @@ const validateEnv = () => {
         parsedFrontendUrl.search ||
         parsedFrontendUrl.hash
     ) {
-        throw new Error('FRONTEND_URL must be a valid URL without credentials, query parameters, or fragments');
+        throw new Error(
+            'FRONTEND_URL must be a valid URL without credentials, query parameters, or fragments',
+        );
     }
 
     if (process.env.NODE_ENV === 'production') {
@@ -106,11 +109,19 @@ const validateEnv = () => {
             parsedRedirectUri.hash ||
             parsedRedirectUri.pathname !== '/api/auth/google/callback'
         ) {
-            throw new Error('GOOGLE_REDIRECT_URI has an invalid callback URL format');
+            throw new Error(
+                'GOOGLE_REDIRECT_URI has an invalid callback URL format',
+            );
         }
 
         const isProductionRedirect =
-            parsedRedirectUri.hostname === 'campus-store-backend-dyy4.onrender.com' &&
+            parsedRedirectUri.hostname === 'www.supercampus.co.in' &&
+            parsedRedirectUri.protocol === 'https:' &&
+            parsedRedirectUri.port === '';
+
+        const isRenderRedirect =
+            parsedRedirectUri.hostname ===
+            'campus-store-backend-dyy4.onrender.com' &&
             parsedRedirectUri.protocol === 'https:' &&
             parsedRedirectUri.port === '';
 
@@ -122,12 +133,12 @@ const validateEnv = () => {
         if (process.env.NODE_ENV === 'production') {
             if (!isProductionRedirect) {
                 throw new Error(
-                    'Production GOOGLE_REDIRECT_URI must use the approved Render HTTPS callback host.',
+                    'Production GOOGLE_REDIRECT_URI must use the approved SUPER CAMPUS HTTPS callback host.',
                 );
             }
-        } else if (!isProductionRedirect && !isLocalRedirect) {
+        } else if (!isProductionRedirect && !isRenderRedirect && !isLocalRedirect) {
             throw new Error(
-                'GOOGLE_REDIRECT_URI must use the approved production or localhost callback host.',
+                'GOOGLE_REDIRECT_URI must use the approved production, Render, or localhost callback host.',
             );
         }
     }
