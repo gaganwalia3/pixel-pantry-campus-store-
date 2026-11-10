@@ -5,7 +5,7 @@ import React, {
 } from 'react';
 
 import useCart from './features/cart/useCart';
-
+import LegalPages from './components/LegalPages';
 import {
   getCsrfToken,
   getSession,
@@ -42,7 +42,7 @@ const API_URL =
     ? 'http://localhost:5000'
     : '';
 
-export default function App() {
+function MarketplaceApp() {
   const {
     cart,
     addToCart,
@@ -1139,4 +1139,18 @@ export default function App() {
       />
     </>
   );
+}
+
+export default function App() {
+  const pathname = window.location.pathname.replace(/\/+$/, '') || '/';
+
+  if (pathname === '/privacy-policy') {
+    return <LegalPages page="privacy" />;
+  }
+
+  if (pathname === '/terms-of-service') {
+    return <LegalPages page="terms" />;
+  }
+
+  return <MarketplaceApp />;
 }
