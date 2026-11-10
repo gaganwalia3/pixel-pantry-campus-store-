@@ -21,7 +21,7 @@ const INITIAL_SIGN_UP_FORM = {
 };
 const API_BASE_URL = import.meta.env.DEV
     ? 'http://localhost:5000'
-    : '';
+    : 'https://campus-store-backend-dyy4.onrender.com';
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN_SECONDS = 60;
