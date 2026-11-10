@@ -4,7 +4,7 @@ const path = require('path');
 const { validateEnv } = require('./config/env');
 
 validateEnv();
-
+const googleAuthRoutes = require('./routes/googleAuth');
 const express = require('express');
 const db = require('./db');
 const authRoutes = require('./routes/auth');
@@ -112,7 +112,7 @@ app.use(csrfSynchronisedProtection);
  * Authentication
  */
 app.use('/api/auth', authRoutes);
-
+app.use('/api/auth', googleAuthRoutes);
 /*
  * Seller applications
  */
