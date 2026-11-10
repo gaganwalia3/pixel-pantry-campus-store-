@@ -1,4 +1,3 @@
-
 const requiredEnvVars = [
     'DB_HOST',
     'DB_PORT',
@@ -45,17 +44,14 @@ const validateEnv = () => {
         throw new Error('FRONTEND_URL must be a valid URL');
     }
 
-    if (!['http:', 'https:'].includes(parsedFrontendUrl.protocol)) {
-        throw new Error('FRONTEND_URL must use HTTP or HTTPS');
-    }
-
     if (
+        !['http:', 'https:'].includes(parsedFrontendUrl.protocol) ||
         parsedFrontendUrl.username ||
         parsedFrontendUrl.password ||
         parsedFrontendUrl.search ||
         parsedFrontendUrl.hash
     ) {
-        throw new Error('FRONTEND_URL must not contain credentials, query parameters, or fragments');
+        throw new Error('FRONTEND_URL must be a valid URL without credentials, query parameters, or fragments');
     }
 
     if (process.env.NODE_ENV === 'production') {
@@ -104,24 +100,34 @@ const validateEnv = () => {
         }
 
         if (
-            !['http:', 'https:'].includes(parsedRedirectUri.protocol) ||
             parsedRedirectUri.username ||
             parsedRedirectUri.password ||
             parsedRedirectUri.search ||
             parsedRedirectUri.hash ||
             parsedRedirectUri.pathname !== '/api/auth/google/callback'
         ) {
-            throw new Error(
-                'GOOGLE_REDIRECT_URI must be a valid callback URL ending exactly in /api/auth/google/callback',
-            );
+            throw new Error('GOOGLE_REDIRECT_URI has an invalid callback URL format');
         }
 
-        if (
-            process.env.NODE_ENV === 'production' &&
-            parsedRedirectUri.protocol !== 'https:'
-        ) {
+        const isProductionRedirect =
+            parsedRedirectUri.hostname === 'campus-store-backend-dyy4.onrender.com' &&
+            parsedRedirectUri.protocol === 'https:' &&
+            parsedRedirectUri.port === '';
+
+        const isLocalRedirect =
+            parsedRedirectUri.hostname === 'localhost' &&
+            parsedRedirectUri.protocol === 'http:' &&
+            parsedRedirectUri.port === '5000';
+
+        if (process.env.NODE_ENV === 'production') {
+            if (!isProductionRedirect) {
+                throw new Error(
+                    'Production GOOGLE_REDIRECT_URI must use the approved Render HTTPS callback host.',
+                );
+            }
+        } else if (!isProductionRedirect && !isLocalRedirect) {
             throw new Error(
-                'GOOGLE_REDIRECT_URI must use HTTPS in production',
+                'GOOGLE_REDIRECT_URI must use the approved production or localhost callback host.',
             );
         }
     }
