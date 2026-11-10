@@ -203,6 +203,7 @@ function MarketplaceApp() {
    */
   const checkoutIdempotencyKeyRef =
     useRef(null);
+  const googleAuthCallbackRef = useRef(null);
 
   /*
    * ============================================================
@@ -231,18 +232,86 @@ function MarketplaceApp() {
    * LOAD SESSION
    * ============================================================
    */
+  /*
+  * ============================================================
+  * LOAD SESSION + GOOGLE OAUTH CALLBACK
+  * ============================================================
+  */
   useEffect(() => {
-    const loadSession =
-      async () => {
-        const currentSession =
-          await getSession();
+    let cancelled = false;
 
-        setSession(
-          currentSession,
-        );
+    const currentUrl = new URL(window.location.href);
+
+    const urlGoogleAuth =
+      currentUrl.searchParams.get('googleAuth');
+
+    const urlAuthError =
+      currentUrl.searchParams.get('authError');
+
+    if (urlGoogleAuth || urlAuthError) {
+      googleAuthCallbackRef.current = {
+        googleAuth: urlGoogleAuth,
+        authError: urlAuthError,
       };
+    }
+
+    const {
+      googleAuth,
+      authError,
+    } = googleAuthCallbackRef.current || {};
+
+    // Remove callback parameters immediately.
+    if (googleAuth || authError) {
+      currentUrl.searchParams.delete('googleAuth');
+      currentUrl.searchParams.delete('authError');
+
+      window.history.replaceState(
+        {},
+        document.title,
+        `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`,
+      );
+    }
+
+    if (authError === 'google_auth_failed') {
+      showToast('Google sign-in failed. Please try again.');
+    }
+
+    const loadSession = async () => {
+      try {
+        const currentSession = await getSession();
+
+        if (cancelled) return;
+
+        setSession(currentSession);
+
+        if (googleAuth === 'success') {
+          if (
+            currentSession?.isAuthenticated &&
+            currentSession?.user
+          ) {
+            showToast('Signed in successfully with Google!');
+          } else {
+            showToast(
+              'Google sign-in could not be completed. Please try again.',
+            );
+          }
+        }
+      } catch {
+        if (cancelled) return;
+
+        if (googleAuth === 'success') {
+          showToast(
+            'Unable to verify your session. Please try again.',
+          );
+        }
+      }
+    };
 
     loadSession();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   /*
@@ -399,6 +468,8 @@ function MarketplaceApp() {
       setToastShow(false);
     }, 2700);
   };
+
+
 
   /*
    * ============================================================
