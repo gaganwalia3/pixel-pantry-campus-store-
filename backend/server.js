@@ -1,5 +1,6 @@
 require('dotenv').config();
-
+const fs = require('fs');
+const path = require('path');
 const { validateEnv } = require('./config/env');
 
 validateEnv();
@@ -22,7 +23,10 @@ const orderRoutes = require('./routes/orders');
 const adminOrderRoutes = require('./routes/adminOrders');
 const sellerOrderRoutes = require('./routes/sellerOrders');
 const productReviewRoutes = require('./routes/productReviews');
+const caPath = process.env.DB_SSL_CA_PATH ||
+    path.join(__dirname, 'certificates', 'aiven-ca.pem');
 
+const databaseCa = fs.readFileSync(caPath);
 const sessionKnex = knex({
     client: 'mysql2',
     connection: {
@@ -32,7 +36,8 @@ const sessionKnex = knex({
         user: process.env.DB_USER,
         password: process.env.DB_PASSWORD,
         ssl: {
-            rejectUnauthorized: false,
+            ca: databaseCa,
+            rejectUnauthorized: true,
         },
     },
 });
