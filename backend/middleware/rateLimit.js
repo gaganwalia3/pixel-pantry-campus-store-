@@ -16,6 +16,32 @@ const authRateLimiter = rateLimit({
     },
 });
 
+const googleAuthStartLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 5,
+
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+
+    message: {
+        success: false,
+        message: 'Too many Google sign-in attempts. Please try again later.',
+    },
+});
+
+const googleAuthCallbackLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+
+    message: {
+        success: false,
+        message: 'Too many authentication attempts. Please try again later.',
+    },
+});
+
 const sellerProductRateLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 30,
@@ -29,6 +55,7 @@ const sellerProductRateLimiter = rateLimit({
             'Too many product requests. Please try again later.',
     },
 });
+
 const sellerApplicationRateLimiter = rateLimit({
     windowMs: 60 * 60 * 1000,
     limit: 5,
@@ -46,8 +73,11 @@ const sellerApplicationRateLimiter = rateLimit({
             'Too many seller application requests. Please try again later.',
     },
 });
+
 module.exports = {
     authRateLimiter,
+    googleAuthStartLimiter,
+    googleAuthCallbackLimiter,
     sellerProductRateLimiter,
     sellerApplicationRateLimiter,
 };

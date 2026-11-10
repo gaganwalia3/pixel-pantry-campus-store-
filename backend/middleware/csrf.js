@@ -9,7 +9,19 @@ const {
     },
 });
 
+const csrfProtection = (req, res, next) => {
+    const isGoogleOAuthCallback =
+        req.method === 'GET' &&
+        req.path === '/api/auth/google/callback';
+
+    if (isGoogleOAuthCallback) {
+        return next();
+    }
+
+    return csrfSynchronisedProtection(req, res, next);
+};
+
 module.exports = {
-    csrfSynchronisedProtection,
+    csrfSynchronisedProtection: csrfProtection,
     generateToken,
 };
